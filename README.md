@@ -84,18 +84,24 @@ npm run dev
 
 ## Development
 
-See [CLAUDE.md](./CLAUDE.md) for AI-assisted development workflow, including:
-- CLI tools for API testing (curl, wrangler)
-- Browser MCP tool for end-to-end testing
-- Automated test scenarios in [TESTS.md](./TESTS.md)
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for complete local development setup guide.
 
+**Quick start:**
 ```bash
-# Local worker development
+# Terminal 1: Start worker locally
 cd worker && npx wrangler dev
 
-# Local frontend development
+# Terminal 2: Start frontend locally
 cd frontend && npm run dev
+
+# Terminal 3: Test
+curl http://127.0.0.1:8787/api/titles
 ```
+
+**Additional resources:**
+- [CLAUDE.md](./CLAUDE.md) - AI-assisted development workflow
+- [TESTS.md](./TESTS.md) - Automated test scenarios
+- [DEVELOPMENT.md](./DEVELOPMENT.md) - Local setup and troubleshooting
 
 ## License
 
