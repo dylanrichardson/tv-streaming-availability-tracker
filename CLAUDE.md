@@ -15,9 +15,23 @@ mcp__browsermcp__browser_navigate: https://dylanrichardson.github.io/tv-streamin
 # Take screenshots to verify UI state
 mcp__browsermcp__browser_screenshot
 
+# Get console logs (errors, warnings, debug output)
+mcp__browsermcp__browser_get_console_logs
+
+# Get accessibility snapshot (page structure, elements, refs)
+mcp__browsermcp__browser_snapshot
+
 # Interact with elements (click, type, etc)
 mcp__browsermcp__browser_click
 mcp__browsermcp__browser_type
+mcp__browsermcp__browser_hover
+
+# Navigate browser
+mcp__browsermcp__browser_go_back
+mcp__browsermcp__browser_go_forward
+
+# Wait for async operations
+mcp__browsermcp__browser_wait
 ```
 
 **Testing approach:**
@@ -31,6 +45,14 @@ mcp__browsermcp__browser_type
 - Verifying UI changes after frontend deployment
 - Testing edge cases that are hard to reproduce manually
 - Debugging issues that only appear in production
+- Checking console for JavaScript errors or warnings
+
+**Important notes:**
+- Browser extension must be connected (click extension icon, click "Connect")
+- Can view DevTools console logs via `mcp__browsermcp__browser_get_console_logs`
+- Can change URL by calling `mcp__browsermcp__browser_navigate` again
+- Screenshots are returned as images for visual verification
+- Use `browser_snapshot` to get element references before clicking/typing
 
 ### Wrangler CLI (Cloudflare)
 
