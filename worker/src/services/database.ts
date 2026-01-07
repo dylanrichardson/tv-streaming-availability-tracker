@@ -159,7 +159,7 @@ export async function getTitlesWithCurrentAvailability(db: D1Database): Promise<
     if (latestDate?.latest_date) {
       const services = await db
         .prepare(`
-          SELECT s.name
+          SELECT DISTINCT s.name
           FROM availability_logs al
           JOIN services s ON al.service_id = s.id
           WHERE al.title_id = ? AND al.check_date = ? AND al.is_available = 1

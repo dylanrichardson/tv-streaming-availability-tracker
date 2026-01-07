@@ -102,11 +102,21 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
     }
 
     const node = edges[0].node;
+
+    // Format poster URL by replacing placeholders
+    let posterUrl = node.content.posterUrl;
+    if (posterUrl) {
+      posterUrl = posterUrl
+        .replace('{profile}', 's332')  // Use s332 size (332px width)
+        .replace('{format}', 'webp');  // Use webp format
+      posterUrl = `https://images.justwatch.com${posterUrl}`;
+    }
+
     return {
       id: node.objectId,
       title: node.content.title,
       object_type: node.objectType === 'SHOW' ? 'show' : 'movie',
-      poster: node.content.posterUrl,
+      poster: posterUrl,
       offers: node.offers || [],
     };
   } catch (error) {
