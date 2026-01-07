@@ -48,6 +48,26 @@ query GetSearchResults($country: Country!, $language: Language!, $first: Int!, $
 }
 `;
 
+const GET_TITLE_QUERY = `
+query GetUrlTitleDetails($fullPath: String!, $country: Country!, $language: Language!, $platform: Platform! = WEB, $filterBuy: WatchNowOfferFilter!, $filterFlatrate: WatchNowOfferFilter!) {
+  urlV2(fullPath: $fullPath) {
+    id
+    objectType
+    objectId
+    offerCount(country: $country, platform: $platform)
+    offers(country: $country, platform: $platform, filter: {preAffiliate: true}) {
+      monetizationType
+      presentationType
+      package {
+        id
+        packageId
+        shortName
+      }
+    }
+  }
+}
+`;
+
 export async function searchTitle(query: string): Promise<JustWatchSearchResult | null> {
   try {
     const response = await fetch(JUSTWATCH_GRAPHQL, {
@@ -95,11 +115,22 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
   }
 }
 
-export async function getTitleAvailability(justwatchId: number, type: 'movie' | 'tv'): Promise<string[]> {
-  // Note: This is kept for the daily check, but could be optimized
-  // For now, we'll need to search by ID or refactor to store offers differently
-  console.warn('getTitleAvailability called - this may need refactoring for GraphQL');
-  return [];
+export async function getTitleAvailability(justwatchId: number, type: 'movie' | 'tv', titleName: string): Promise<string[]> {
+  try {
+    // Since we don't have the fullPath stored, we need to search by name first
+    // This is less efficient but works for the daily check
+    const searchResult = await searchTitle(titleName);
+
+    if (!searchResult || !searchResult.offers) {
+      console.log(`No results found for ${titleName} during availability check`);
+      return [];
+    }
+
+    return extractServicesFromOffers(searchResult.offers);
+  } catch (error) {
+    console.error('JustWatch availability error:', error);
+    return [];
+  }
 }
 
 export function extractServicesFromOffers(offers: any[]): string[] {

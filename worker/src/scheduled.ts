@@ -24,7 +24,8 @@ export async function handleScheduled(env: Env): Promise<void> {
       // Get current availability from JustWatch
       const availableSlugs = await getTitleAvailability(
         parseInt(title.justwatch_id, 10),
-        title.type
+        title.type,
+        title.name
       );
 
       // Log availability for each service
