@@ -30,7 +30,8 @@ Track streaming availability history of movies and TV shows to make informed pur
 streamtrack/
 ├── frontend/     # React + Vite + Tailwind + Recharts
 ├── worker/       # Cloudflare Worker + D1 API
-└── CLAUDE.md     # Instructions for AI-assisted development
+├── CLAUDE.md     # Instructions for AI-assisted development
+└── TESTS.md      # Browser test scenarios for automated testing
 ```
 
 ## Quick Start
@@ -83,7 +84,10 @@ npm run dev
 
 ## Development
 
-See [CLAUDE.md](./CLAUDE.md) for AI-assisted development workflow.
+See [CLAUDE.md](./CLAUDE.md) for AI-assisted development workflow, including:
+- CLI tools for API testing (curl, wrangler)
+- Browser MCP tool for end-to-end testing
+- Automated test scenarios in [TESTS.md](./TESTS.md)
 
 ```bash
 # Local worker development

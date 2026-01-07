@@ -2,7 +2,35 @@
 
 Instructions for AI-assisted development of StreamTrack.
 
-## Testing & Monitoring with CLI Tools
+## Testing & Monitoring
+
+### Browser Testing (MCP Tool)
+
+Use the browser MCP tool to test the deployed frontend interactively:
+
+```
+# Navigate to the live site
+mcp__browsermcp__browser_navigate: https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+
+# Take screenshots to verify UI state
+mcp__browsermcp__browser_screenshot
+
+# Interact with elements (click, type, etc)
+mcp__browsermcp__browser_click
+mcp__browsermcp__browser_type
+```
+
+**Testing approach:**
+- Run through test scenarios defined in `TESTS.md`
+- Tests are written in plain English (informal Gherkin style)
+- Claude can execute these autonomously without user intervention
+- Combine browser testing with API calls and logs for full verification
+
+**When to use browser testing:**
+- Validating end-to-end user flows
+- Verifying UI changes after frontend deployment
+- Testing edge cases that are hard to reproduce manually
+- Debugging issues that only appear in production
 
 ### Wrangler CLI (Cloudflare)
 
@@ -72,13 +100,13 @@ npm run dev
 
 ## Iterative Development Workflow
 
-1. **Identify issue**: Use `curl` or browser to find bugs
+1. **Identify issue**: Use browser MCP tool, `curl`, or manual testing to find bugs
 2. **Check logs**: `npx wrangler tail` shows runtime errors
 3. **Query DB**: Verify data state with D1 CLI
 4. **Fix code**: Edit worker/src or frontend/src
 5. **Test locally**: `npx wrangler dev` for quick iteration
 6. **Deploy**: `npx wrangler deploy`
-7. **Verify**: Re-test with curl commands
+7. **Verify**: Run automated browser tests from `TESTS.md` or use curl commands
 
 ## Key Files
 
@@ -90,6 +118,7 @@ npm run dev
 | `worker/src/scheduled.ts` | Daily cron job |
 | `frontend/src/config.ts` | API URL configuration |
 | `frontend/src/hooks/useApi.ts` | API client |
+| `TESTS.md` | Browser test scenarios (plain English) |
 
 ## Common Issues
 
