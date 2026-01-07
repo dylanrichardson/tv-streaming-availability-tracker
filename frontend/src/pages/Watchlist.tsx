@@ -30,9 +30,13 @@ export function Watchlist() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">My Watchlist</h2>
-          <p className="text-gray-400 text-sm mt-1">
-            {titles.length} title{titles.length !== 1 ? 's' : ''} tracked
-          </p>
+          {loading ? (
+            <div className="h-5 w-32 bg-gray-700 rounded animate-pulse mt-1"></div>
+          ) : (
+            <p className="text-gray-400 text-sm mt-1">
+              {titles.length} title{titles.length !== 1 ? 's' : ''} tracked
+            </p>
+          )}
         </div>
         <button
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
@@ -43,8 +47,32 @@ export function Watchlist() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-800 rounded-lg p-4 animate-pulse">
+                <div className="flex gap-4">
+                  <div className="w-16 h-24 bg-gray-700 rounded"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 bg-gray-700 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+                    <div className="flex gap-2 mt-2">
+                      <div className="h-6 w-16 bg-gray-700 rounded"></div>
+                      <div className="h-6 w-16 bg-gray-700 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-gray-800 rounded-lg p-6 animate-pulse">
+            <div className="h-6 bg-gray-700 rounded w-1/2 mb-4"></div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-4 bg-gray-700 rounded"></div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : error ? (
         <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
