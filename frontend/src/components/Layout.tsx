@@ -18,7 +18,7 @@ export function Layout() {
                   }`
                 }
               >
-                My Watchlist
+                Tracked Titles
               </NavLink>
               <NavLink
                 to="/analytics"

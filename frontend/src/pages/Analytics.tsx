@@ -37,7 +37,7 @@ export function Analytics() {
       <div>
         <h2 className="text-2xl font-bold">Analytics</h2>
         <p className="text-gray-400 text-sm mt-1">
-          Track how your watchlist coverage changes across streaming services
+          Track how tracked title availability changes across streaming services
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export function Analytics() {
                 <div key={service.name} className="bg-gray-800 rounded-lg p-4">
                   <h4 className="text-sm text-gray-400">{service.name}</h4>
                   <p className="text-2xl font-bold mt-1">{latestCoverage}%</p>
-                  <p className="text-xs text-gray-500 mt-1">of your watchlist</p>
+                  <p className="text-xs text-gray-500 mt-1">of tracked titles</p>
                 </div>
               );
             })}

@@ -133,14 +133,14 @@ await env.RATE_LIMIT_KV.put(
 
 **Just 2 simple limits:**
 
-1. **Total title cap**: 500 titles (can increase later)
+1. **Total title cap**: 5000 titles (can increase later)
 2. **Per-request limit**: 50 titles per import
 
 **Code:**
 ```typescript
 // src/routes/sync.ts
 
-const MAX_TOTAL_TITLES = 500;
+const MAX_TOTAL_TITLES = 5000;
 const MAX_TITLES_PER_REQUEST = 50;
 
 export async function handleSync(request: Request, env: Env): Promise<Response> {
@@ -307,22 +307,23 @@ export const CONFIG = {
 ## Recommendation
 
 **Start with Phase 1 (Basic Limits):**
-- 500 total titles (easy to raise later)
+- 5000 total titles (~714 API calls/day)
 - 50 titles per import
 - No IP rate limiting (yet)
 - Add UI messaging about limits
 - Monitor usage for 1-2 weeks
 
 **Why this is sufficient:**
-- 500 titles × 1 check/week = ~70 API calls/day (very manageable)
+- 5000 titles × 1 check/week = ~714 API calls/day (~30/hour - very manageable)
 - Total cap prevents runaway growth
 - Per-request limit prevents accidental huge imports
 - Can always add IP limiting later if seeing abuse
 
 **Increase limit if:**
-- Hitting 500 with legitimate use
+- Hitting 5000 with legitimate use
 - No abuse patterns observed
 - JustWatch API handling load fine
+- Could go to 10,000 (1428 calls/day = 60/hour)
 
 **Add IP rate limiting if:**
 - Seeing single IP spamming

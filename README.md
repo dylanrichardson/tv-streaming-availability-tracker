@@ -2,12 +2,15 @@
 
 Track streaming availability history of movies and TV shows to make informed purchasing decisions.
 
+**Shared Database Model**: Anyone can add titles to track. All users see the same availability history for each title. This dramatically reduces API load and creates a collaborative knowledge base.
+
 ## Features
 
-- **Watchlist Management**: Import movies/TV shows by name, resolved via JustWatch
+- **Tracked Titles**: Import movies/TV shows by name, resolved via JustWatch (shared database, up to 5000 titles)
 - **Availability Timeline**: Gantt-style visualization of which services had each title
 - **Service Analytics**: Compare coverage percentages across Netflix, Hulu, Disney+, etc.
 - **Buy Recommendations**: Surface titles rarely available for streaming
+- **Queue System**: Smart scheduling checks each title weekly, spreading API calls throughout the day
 
 ## Architecture
 
@@ -77,10 +80,20 @@ npm run dev
 
 ## How It Works
 
-1. **Import**: User adds titles → Worker searches JustWatch → stores in D1
-2. **Daily Check**: Cron trigger (6am UTC) fetches availability for all titles
+1. **Import**: Anyone adds titles → Worker searches JustWatch → stores in shared D1 database
+   - Duplicate detection prevents the same title being added twice
+   - Up to 5000 titles total, 50 per import request
+2. **Queue System**: Cron trigger (every 4 hours) checks oldest unchecked titles
+   - Each title checked once per week (configurable)
+   - Smart scheduling: batch size adjusts based on total title count
+   - ~714 API calls/day at 5000 titles (~30 calls/hour)
 3. **History**: Each check logs `{title, service, date, available}` rows
 4. **Analytics**: Aggregates logs to calculate coverage % per service over time
+
+**Shared Database Benefits:**
+- 100 users tracking the same title = 1 API call instead of 100
+- Scales linearly with unique titles, not user count
+- No authentication needed (simpler, faster)
 
 ## Development
 

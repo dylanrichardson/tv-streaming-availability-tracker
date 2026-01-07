@@ -29,12 +29,12 @@ export function Watchlist() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">My Watchlist</h2>
+          <h2 className="text-2xl font-bold">Tracked Titles</h2>
           {loading ? (
             <div className="h-5 w-32 bg-gray-700 rounded animate-pulse mt-1"></div>
           ) : (
             <p className="text-gray-400 text-sm mt-1">
-              {titles.length} title{titles.length !== 1 ? 's' : ''} tracked
+              {titles.length} title{titles.length !== 1 ? 's' : ''} tracked · Shared database
             </p>
           )}
         </div>
@@ -86,7 +86,10 @@ export function Watchlist() {
         </div>
       ) : titles.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">No titles in your watchlist yet.</p>
+          <p className="text-gray-500 mb-4">No titles tracked yet.</p>
+          <p className="text-gray-600 text-sm mb-4">
+            This is a shared database. Add titles to start tracking their streaming availability.
+          </p>
           <button
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             onClick={() => setShowImport(true)}
