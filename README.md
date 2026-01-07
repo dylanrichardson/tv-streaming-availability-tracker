@@ -1,4 +1,4 @@
-# StreamTrack
+# TV Streaming Availability Tracker
 
 Track streaming availability history of movies and TV shows to make informed purchasing decisions.
 

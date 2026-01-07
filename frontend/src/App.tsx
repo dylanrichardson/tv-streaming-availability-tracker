@@ -6,7 +6,7 @@ import './index.css';
 
 function App() {
   return (
-    <BrowserRouter basename="/streamtrack">
+    <BrowserRouter basename="/tv-streaming-availability-tracker">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Watchlist />} />
