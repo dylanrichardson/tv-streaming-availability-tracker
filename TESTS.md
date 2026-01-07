@@ -4,14 +4,61 @@ Automated test scenarios for StreamTrack using the browser MCP tool. These tests
 
 ## Test Execution
 
+### Running Tests Locally (Before Push)
+
 **Prerequisites:**
-- Frontend deployed to: `https://dylanrichardson.github.io/tv-streaming-availability-tracker/`
-- API available at: `https://streamtrack-api.dylanrichardson1996.workers.dev`
+1. Local backend running: `cd worker && npx wrangler dev`
+2. Local frontend running: `cd frontend && npm run dev`
+3. Local database initialized: `npx wrangler d1 execute streamtrack --local --file=./schema.sql`
+
+**Test against:**
+- Frontend: `http://localhost:5173/tv-streaming-availability-tracker/`
+- API: `http://127.0.0.1:8787`
+
+**Selective testing** (to save resources):
+Run these critical tests before every push:
+- Test 1: Basic Page Load
+- Test 4: Import Titles Flow (Success Path)
+- Test 6: Import Modal Cancel
+- Test 10: Navigation Between Pages
 
 **How to run:**
-- Use browser MCP tool (`mcp__browsermcp__*`) to interact with the frontend
-- Combine with API calls (`curl`) to verify backend state
-- Check logs with `cd worker && npx wrangler tail` when debugging failures
+```bash
+# In Claude Code, navigate to local frontend
+mcp__browsermcp__browser_navigate: http://localhost:5173/tv-streaming-availability-tracker/
+
+# Run through selected test scenarios manually
+# Use curl to verify API state between tests
+curl http://127.0.0.1:8787/api/titles | jq
+```
+
+### Running Tests in Production (After Deployment)
+
+**Prerequisites:**
+1. Worker deployed and verified (see Deployment Verification below)
+2. Frontend deployed via GitHub Pages
+
+**Test against:**
+- Frontend: `https://dylanrichardson.github.io/tv-streaming-availability-tracker/`
+- API: `https://streamtrack-api.dylanrichardson1996.workers.dev`
+
+**Full test suite** (after major changes):
+Run all 15 test scenarios to ensure production is working correctly.
+
+**Quick smoke test** (after minor changes):
+- Test 1: Basic Page Load
+- Test 4: Import Titles Flow (Success Path)
+- Test 8: Analytics Page (With Data)
+
+**How to run:**
+```bash
+# Navigate to production frontend
+mcp__browsermcp__browser_navigate: https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+
+# Run through test scenarios
+# Use curl to verify API state
+curl https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles | jq
+```
 
 ---
 

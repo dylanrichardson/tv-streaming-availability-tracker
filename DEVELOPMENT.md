@@ -210,23 +210,203 @@ npx wrangler d1 execute streamtrack --local --command "
 npx wrangler d1 execute streamtrack --local --command "SELECT COUNT(*) FROM titles"
 ```
 
+## Pre-Deployment Testing
+
+Before deploying to production, run critical tests locally to catch issues early.
+
+### 1. Run Selective AI Tests Locally
+
+From the 15 test scenarios in `TESTS.md`, run these critical ones against your local setup:
+
+**Must-run tests:**
+1. **Basic Page Load** - Verify UI renders
+2. **Import Titles Flow (Success Path)** - Core functionality works
+3. **Import Modal Cancel** - User can cancel operations
+4. **Navigation Between Pages** - Routing works
+
+**How to run:**
+```bash
+# Ensure local servers are running in separate terminals
+cd worker && npx wrangler dev          # Terminal 1
+cd frontend && npm run dev             # Terminal 2
+
+# In Claude Code (Terminal 3):
+# Navigate to local frontend
+mcp__browsermcp__browser_navigate: http://localhost:5173/tv-streaming-availability-tracker/
+
+# Run through test scenarios from TESTS.md
+# Verify each step passes
+# Use curl to check API state between tests
+curl http://127.0.0.1:8787/api/titles | jq
+```
+
+**Why selective testing?**
+- Saves API quota (JustWatch calls)
+- Faster iteration
+- Catches 80% of issues before deployment
+
+### 2. Verify Local Tests Pass
+
+Before proceeding to deployment, ensure:
+- [ ] All critical tests pass
+- [ ] No console errors in browser DevTools
+- [ ] API returns expected data via curl
+- [ ] Database state is correct via wrangler D1 commands
+
 ## Deployment
 
-After testing locally, deploy to production:
+### Step 1: Deploy Worker
 
 ```bash
-# Deploy worker
 cd worker
 npx wrangler deploy
+```
 
-# Deploy frontend (via git push to GitHub Pages)
+**Expected output:**
+```
+✓ Uploaded streamtrack-api (X.XX sec)
+✓ Deployed streamtrack-api triggers (X.XX sec)
+  https://streamtrack-api.dylanrichardson1996.workers.dev
+  Current Version ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+**Verify deployment succeeded:**
+```bash
+# Check worker responds
+curl https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles
+
+# Check specific functionality
+curl -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync \
+  -H "Content-Type: application/json" \
+  -d '{"titles": ["Test Title"]}'
+
+# View worker logs
+npx wrangler tail --format pretty
+```
+
+If deployment fails:
+- Check error message from wrangler
+- Verify wrangler.toml is correct
+- Ensure you're logged in: `npx wrangler login`
+
+### Step 2: Deploy Frontend
+
+```bash
 cd ..
 git add .
 git commit -m "Your changes"
-git push
+git push origin main
 ```
 
 Frontend auto-deploys via GitHub Actions when you push to `main`.
+
+**Verify GitHub Actions succeeded:**
+
+Option 1 - Via CLI:
+```bash
+# Check latest workflow run status
+gh run list --limit 1
+
+# View detailed logs if needed
+gh run view --log
+```
+
+Option 2 - Via Web:
+```bash
+# Open Actions page in browser
+gh repo view --web
+# Navigate to "Actions" tab
+# Check latest "Deploy to GitHub Pages" workflow
+```
+
+**Expected workflow steps:**
+1. ✓ Build frontend (`npm run build`)
+2. ✓ Upload artifact
+3. ✓ Deploy to GitHub Pages
+
+**Verify frontend deployed:**
+```bash
+# Check site is live
+curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+
+# Should return: HTTP/2 200
+```
+
+If deployment fails:
+- Check GitHub Actions logs
+- Verify repository has Pages enabled (Settings → Pages)
+- Check branch is set to deploy from `gh-pages` or GitHub Actions
+
+### Step 3: Run Production AI Tests
+
+After both deployments succeed, run tests against production to verify:
+
+**Quick smoke test** (5 minutes):
+1. Basic Page Load
+2. Import Titles Flow (Success Path)
+3. Analytics Page (With Data)
+
+**Full test suite** (15-20 minutes):
+Run all 15 scenarios from `TESTS.md` if:
+- Major feature changes
+- JustWatch API integration changes
+- Database schema updates
+
+**How to run production tests:**
+```bash
+# In Claude Code, navigate to production
+mcp__browsermcp__browser_navigate: https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+
+# Run through test scenarios
+# Verify functionality works end-to-end
+# Check API responses
+curl https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles | jq
+```
+
+**Production-specific checks:**
+- [ ] Existing user data preserved (if applicable)
+- [ ] CORS works correctly
+- [ ] Daily cron job is scheduled: `npx wrangler deployments list`
+- [ ] Analytics show correct data
+- [ ] JustWatch API searches work
+
+## Deployment Checklist
+
+Use this checklist for every deployment:
+
+**Pre-Deployment:**
+- [ ] Run selective local tests (4 critical scenarios)
+- [ ] Verify no console errors locally
+- [ ] Commit all changes: `git status` shows clean
+
+**Deploy Backend:**
+- [ ] `cd worker && npx wrangler deploy`
+- [ ] Verify worker responds: `curl https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles`
+- [ ] Check logs: `npx wrangler tail` (optional)
+
+**Deploy Frontend:**
+- [ ] `git push origin main`
+- [ ] Wait for GitHub Actions: `gh run list --limit 1`
+- [ ] Verify Actions succeeded (green checkmark)
+- [ ] Verify site loads: `curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/`
+
+**Post-Deployment:**
+- [ ] Run quick smoke test (3 scenarios) on production
+- [ ] Verify user-facing functionality works
+- [ ] Check for any errors in production logs
+- [ ] Optional: Run full test suite for major changes
+
+**Rollback Plan:**
+If production is broken:
+```bash
+# Rollback worker to previous version
+cd worker
+npx wrangler rollback --message "Rollback due to issue"
+
+# Rollback frontend
+git revert HEAD
+git push origin main
+```
 
 ## Troubleshooting
 

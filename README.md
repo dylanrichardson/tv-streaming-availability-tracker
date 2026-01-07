@@ -99,9 +99,10 @@ curl http://127.0.0.1:8787/api/titles
 ```
 
 **Additional resources:**
+- [DEVELOPMENT.md](./DEVELOPMENT.md) - Complete local setup guide
+- [TESTS.md](./TESTS.md) - Automated test scenarios (15 tests)
+- [DEPLOYMENT-CHECKLIST.md](./DEPLOYMENT-CHECKLIST.md) - Quick deployment reference
 - [CLAUDE.md](./CLAUDE.md) - AI-assisted development workflow
-- [TESTS.md](./TESTS.md) - Automated test scenarios
-- [DEVELOPMENT.md](./DEVELOPMENT.md) - Local setup and troubleshooting
 
 ## License
 
