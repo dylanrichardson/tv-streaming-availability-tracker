@@ -1,75 +1,97 @@
 # StreamTrack
 
-Track streaming availability history of your movies and TV shows to make informed purchasing decisions.
+Track streaming availability history of movies and TV shows to make informed purchasing decisions.
 
 ## Features
 
-- **Watchlist Management**: Import and track your favorite movies/TV shows
-- **Availability Timeline**: See which streaming services had your titles and when
-- **Service Analytics**: Compare coverage across Netflix, Hulu, Disney+, etc.
-- **Buy Recommendations**: Identify titles rarely available for streaming
+- **Watchlist Management**: Import movies/TV shows by name, resolved via JustWatch
+- **Availability Timeline**: Gantt-style visualization of which services had each title
+- **Service Analytics**: Compare coverage percentages across Netflix, Hulu, Disney+, etc.
+- **Buy Recommendations**: Surface titles rarely available for streaming
 
 ## Architecture
 
-- **Frontend**: React + Vite + Tailwind CSS + Recharts (GitHub Pages)
-- **Backend**: Cloudflare Workers + D1 Database
-- **Data Source**: JustWatch streaming availability
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│  GitHub Pages   │────▶│  Cloudflare Worker   │────▶│  JustWatch API  │
+│  (React SPA)    │     │  (Edge Runtime)      │     │  (Unofficial)   │
+└─────────────────┘     └──────────┬───────────┘     └─────────────────┘
+                                   │
+                                   ▼
+                        ┌──────────────────────┐
+                        │   Cloudflare D1      │
+                        │   (SQLite at Edge)   │
+                        └──────────────────────┘
+```
 
 ## Project Structure
 
 ```
 streamtrack/
-├── frontend/     # React application
-└── worker/       # Cloudflare Worker API
+├── frontend/     # React + Vite + Tailwind + Recharts
+├── worker/       # Cloudflare Worker + D1 API
+└── CLAUDE.md     # Instructions for AI-assisted development
 ```
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
-
-- Node.js 18+
-- Wrangler CLI (`npm install -g wrangler`)
-
-### Backend Setup
+### 1. Deploy Backend
 
 ```bash
 cd worker
 npm install
-wrangler d1 create streamtrack
-# Update wrangler.toml with database_id
-wrangler d1 execute streamtrack --file=./schema.sql
-wrangler dev  # Local development
+npx wrangler login
+npx wrangler d1 create streamtrack
+# Copy the database_id to wrangler.toml
+npx wrangler d1 execute streamtrack --remote --file=./schema.sql
+npx wrangler deploy
 ```
 
-### Frontend Setup
+### 2. Configure Frontend
 
+Update `frontend/src/config.ts` with your Worker URL:
+```ts
+export const API_URL = 'https://your-worker.workers.dev';
+```
+
+### 3. Deploy Frontend
+
+Push to GitHub with Pages enabled, or run locally:
 ```bash
 cd frontend
 npm install
-npm run dev  # Local development
+npm run dev
 ```
 
-## Deployment
-
-### Backend (Cloudflare Workers)
-
-```bash
-cd worker
-wrangler deploy
-```
-
-### Frontend (GitHub Pages)
-
-Push to main branch - GitHub Actions will deploy automatically.
-
-## API Endpoints
+## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/sync` | Import titles to track |
-| GET | `/api/titles` | List all tracked titles |
-| GET | `/api/history/:id` | Get availability timeline |
-| GET | `/api/stats/services` | Get service coverage stats |
+| `POST` | `/api/sync` | Import titles `{titles: string[]}` |
+| `GET` | `/api/titles` | List all titles with current availability |
+| `GET` | `/api/history/:id` | Availability timeline for a title |
+| `GET` | `/api/stats/services` | Service coverage statistics |
+| `GET` | `/api/recommendations?months=3` | Titles unavailable for N months |
+| `POST` | `/api/trigger-check` | Manually run availability check |
+
+## How It Works
+
+1. **Import**: User adds titles → Worker searches JustWatch → stores in D1
+2. **Daily Check**: Cron trigger (6am UTC) fetches availability for all titles
+3. **History**: Each check logs `{title, service, date, available}` rows
+4. **Analytics**: Aggregates logs to calculate coverage % per service over time
+
+## Development
+
+See [CLAUDE.md](./CLAUDE.md) for AI-assisted development workflow.
+
+```bash
+# Local worker development
+cd worker && npx wrangler dev
+
+# Local frontend development
+cd frontend && npm run dev
+```
 
 ## License
 
