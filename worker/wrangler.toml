@@ -1,0 +1,14 @@
+name = "streamtrack-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "streamtrack"
+database_id = "placeholder-update-after-creation"
+
+[triggers]
+crons = ["0 6 * * *"]
+
+[vars]
+CORS_ORIGIN = "*"
