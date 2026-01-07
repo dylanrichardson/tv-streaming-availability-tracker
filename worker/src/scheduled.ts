@@ -1,34 +1,48 @@
 import type { Env } from './types';
-import { getAllTitles, getAllServices, getServiceBySlug, logAvailability } from './services/database';
+import { getAllTitles, getStaleTitles, getAllServices, getServiceBySlug, logAvailability, updateLastChecked } from './services/database';
 import { getTitleAvailability } from './services/justwatch';
 
-export async function handleScheduled(env: Env): Promise<void> {
-  console.log('Starting scheduled availability check...');
+// Configuration
+const CONFIG = {
+  CRON_INTERVAL_HOURS: 4,
+  TARGET_CHECK_FREQUENCY_DAYS: 7,
+  API_DELAY_MS: 500,
+  RATE_LIMIT_BACKOFF_MS: 5000,
+};
 
-  const titles = await getAllTitles(env.DB);
+export async function handleScheduled(env: Env): Promise<void> {
+  console.log('Starting scheduled availability check with queue system...');
+
+  const allTitles = await getAllTitles(env.DB);
   const services = await getAllServices(env.DB);
   const today = new Date().toISOString().split('T')[0];
+  const now = new Date().toISOString();
 
-  // Divide titles into 6 batches (for 4-hour intervals: 0, 4, 8, 12, 16, 20 UTC)
-  const hour = new Date().getUTCHours();
-  const batch = Math.floor(hour / 4); // 0-5
-  const titlesPerBatch = Math.ceil(titles.length / 6);
+  // Calculate dynamic batch size
+  const totalTitles = allTitles.length;
+  const runsPerPeriod = (CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24) / CONFIG.CRON_INTERVAL_HOURS;
+  const titlesPerRun = Math.max(1, Math.ceil(totalTitles / runsPerPeriod));
 
-  const startIdx = batch * titlesPerBatch;
-  const endIdx = Math.min(startIdx + titlesPerBatch, titles.length);
-  const batchTitles = titles.slice(startIdx, endIdx);
+  // Get stale titles (not checked in 7 days or never checked)
+  const staleTitles = await getStaleTitles(
+    env.DB,
+    titlesPerRun,
+    CONFIG.TARGET_CHECK_FREQUENCY_DAYS
+  );
 
   console.log(
-    `Batch ${batch} (hour ${hour}): Checking ${batchTitles.length} of ${titles.length} total titles`
+    `Queue system: Checking ${staleTitles.length} of ${totalTitles} total titles (batch size: ${titlesPerRun})`
   );
 
   let checked = 0;
   let errors = 0;
+  let skipped = 0;
 
-  for (const title of batchTitles) {
+  for (const title of staleTitles) {
     try {
       if (!title.justwatch_id) {
         console.log(`Skipping ${title.name} - no JustWatch ID`);
+        skipped++;
         continue;
       }
 
@@ -45,23 +59,30 @@ export async function handleScheduled(env: Env): Promise<void> {
         await logAvailability(env.DB, title.id, service.id, today, isAvailable);
       }
 
-      checked++;
+      // Update last_checked timestamp
+      await updateLastChecked(env.DB, title.id, now);
 
-      // Increased delay to reduce rate limiting risk (500ms = max 7200 requests/hour)
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      checked++;
+      console.log(`✓ Checked ${title.name} (last checked: ${title.last_checked || 'never'})`);
+
+      // Delay between requests to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, CONFIG.API_DELAY_MS));
     } catch (error) {
       console.error(`Error checking ${title.name}:`, error);
       errors++;
 
       // If getting rate limited, back off more
       if (error instanceof Error && error.message.includes('429')) {
-        console.warn('Rate limited detected, backing off for 5 seconds...');
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        console.warn(`Rate limit detected, backing off for ${CONFIG.RATE_LIMIT_BACKOFF_MS}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, CONFIG.RATE_LIMIT_BACKOFF_MS));
       }
     }
   }
 
   console.log(
-    `Batch ${batch} complete: ${checked} checked, ${errors} errors, ${batchTitles.length - checked - errors} skipped`
+    `Queue check complete: ${checked} checked, ${errors} errors, ${skipped} skipped`
+  );
+  console.log(
+    `Next run will check titles not updated since: ${new Date(Date.now() - CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24 * 60 * 60 * 1000).toISOString()}`
   );
 }

@@ -1,5 +1,5 @@
 import type { Env, SyncRequest, Title } from '../types';
-import { createTitle, findTitleByName, getAllServices, getServiceBySlug, logAvailability } from '../services/database';
+import { createTitle, findTitleByName, findTitleByJustWatchId, getAllServices, getServiceBySlug, logAvailability } from '../services/database';
 import { searchTitle, extractServicesFromOffers } from '../services/justwatch';
 
 export async function handleSync(request: Request, env: Env): Promise<Response> {
@@ -11,16 +11,16 @@ export async function handleSync(request: Request, env: Env): Promise<Response> 
       return Response.json({ error: 'titles array is required' }, { status: 400 });
     }
 
-    const results: { name: string; status: 'created' | 'exists' | 'not_found'; title?: Title }[] = [];
+    const results: { name: string; status: 'created' | 'exists' | 'not_found'; title?: Title; note?: string }[] = [];
 
     for (const name of titleNames) {
       const trimmedName = name.trim();
       if (!trimmedName) continue;
 
-      // Check if title already exists
-      const existing = await findTitleByName(env.DB, trimmedName);
-      if (existing) {
-        results.push({ name: trimmedName, status: 'exists', title: existing });
+      // Check if title already exists by name
+      const existingByName = await findTitleByName(env.DB, trimmedName);
+      if (existingByName) {
+        results.push({ name: trimmedName, status: 'exists', title: existingByName });
         continue;
       }
 
@@ -28,6 +28,20 @@ export async function handleSync(request: Request, env: Env): Promise<Response> 
       const jwResult = await searchTitle(trimmedName);
       if (!jwResult) {
         results.push({ name: trimmedName, status: 'not_found' });
+        continue;
+      }
+
+      // Check if title already exists by JustWatch ID (handles name variations)
+      const existingById = await findTitleByJustWatchId(env.DB, jwResult.id.toString());
+      if (existingById) {
+        results.push({
+          name: trimmedName,
+          status: 'exists',
+          title: existingById,
+          note: existingById.name !== trimmedName
+            ? `Already tracked as "${existingById.name}"`
+            : undefined
+        });
         continue;
       }
 

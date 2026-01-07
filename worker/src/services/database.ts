@@ -1,13 +1,37 @@
 import type { Env, Title, Service, HistoryResponse, StatsResponse } from '../types';
 
+// Fix poster URL formatting for titles from database
+function fixPosterUrl(posterUrl: string | null): string | null {
+  if (!posterUrl) return null;
+
+  // Already formatted correctly
+  if (posterUrl.startsWith('https://')) return posterUrl;
+
+  // Fix template format
+  return `https://images.justwatch.com${posterUrl}`
+    .replace('{profile}', 's332')
+    .replace('{format}', 'webp');
+}
+
 export async function getAllTitles(db: D1Database): Promise<Title[]> {
   const result = await db.prepare('SELECT * FROM titles ORDER BY name').all<Title>();
-  return result.results || [];
+  const titles = result.results || [];
+
+  // Fix poster URLs on read
+  return titles.map(title => ({
+    ...title,
+    poster_url: fixPosterUrl(title.poster_url)
+  }));
 }
 
 export async function getTitleById(db: D1Database, id: number): Promise<Title | null> {
   const result = await db.prepare('SELECT * FROM titles WHERE id = ?').bind(id).first<Title>();
-  return result;
+  if (!result) return null;
+
+  return {
+    ...result,
+    poster_url: fixPosterUrl(result.poster_url)
+  };
 }
 
 export async function createTitle(
@@ -29,7 +53,25 @@ export async function findTitleByName(db: D1Database, name: string): Promise<Tit
     .prepare('SELECT * FROM titles WHERE LOWER(name) = LOWER(?)')
     .bind(name)
     .first<Title>();
-  return result;
+  if (!result) return null;
+
+  return {
+    ...result,
+    poster_url: fixPosterUrl(result.poster_url)
+  };
+}
+
+export async function findTitleByJustWatchId(db: D1Database, justwatchId: string): Promise<Title | null> {
+  const result = await db
+    .prepare('SELECT * FROM titles WHERE justwatch_id = ?')
+    .bind(justwatchId)
+    .first<Title>();
+  if (!result) return null;
+
+  return {
+    ...result,
+    poster_url: fixPosterUrl(result.poster_url)
+  };
 }
 
 export async function getAllServices(db: D1Database): Promise<Service[]> {
@@ -40,6 +82,35 @@ export async function getAllServices(db: D1Database): Promise<Service[]> {
 export async function getServiceBySlug(db: D1Database, slug: string): Promise<Service | null> {
   const result = await db.prepare('SELECT * FROM services WHERE slug = ?').bind(slug).first<Service>();
   return result;
+}
+
+export async function updateLastChecked(db: D1Database, titleId: number, timestamp: string): Promise<void> {
+  await db
+    .prepare('UPDATE titles SET last_checked = ? WHERE id = ?')
+    .bind(timestamp, titleId)
+    .run();
+}
+
+export async function getStaleTitles(db: D1Database, limit: number, daysStale: number): Promise<Title[]> {
+  // Get titles that haven't been checked in X days, or never checked
+  const result = await db
+    .prepare(`
+      SELECT * FROM titles
+      WHERE last_checked IS NULL
+         OR last_checked < datetime('now', '-${daysStale} days')
+      ORDER BY last_checked ASC NULLS FIRST
+      LIMIT ?
+    `)
+    .bind(limit)
+    .all<Title>();
+
+  const titles = result.results || [];
+
+  // Fix poster URLs on read
+  return titles.map(title => ({
+    ...title,
+    poster_url: fixPosterUrl(title.poster_url)
+  }));
 }
 
 export async function logAvailability(
