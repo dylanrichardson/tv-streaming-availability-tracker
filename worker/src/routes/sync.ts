@@ -1,6 +1,6 @@
 import type { Env, SyncRequest, Title } from '../types';
-import { createTitle, findTitleByName, getAllServices } from '../services/database';
-import { searchTitle } from '../services/justwatch';
+import { createTitle, findTitleByName, getAllServices, getServiceBySlug, logAvailability } from '../services/database';
+import { searchTitle, extractServicesFromOffers } from '../services/justwatch';
 
 export async function handleSync(request: Request, env: Env): Promise<Response> {
   try {
@@ -39,6 +39,18 @@ export async function handleSync(request: Request, env: Env): Promise<Response> 
         jwResult.id.toString(),
         jwResult.poster || null
       );
+
+      // Extract services from offers and log initial availability
+      const serviceSlugs = extractServicesFromOffers(jwResult.offers || []);
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get all services to log availability (available + unavailable)
+      const allServices = await getAllServices(env.DB);
+
+      for (const service of allServices) {
+        const isAvailable = serviceSlugs.includes(service.slug);
+        await logAvailability(env.DB, title.id, service.id, today, isAvailable);
+      }
 
       results.push({ name: trimmedName, status: 'created', title });
     }
