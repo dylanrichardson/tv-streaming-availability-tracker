@@ -120,6 +120,39 @@ npm run dev
 | `frontend/src/hooks/useApi.ts` | API client |
 | `TESTS.md` | Browser test scenarios (plain English) |
 
+## Deployment Verification
+
+### Frontend Deployment (GitHub Actions)
+
+Frontend auto-deploys when pushing to `main`. **DO NOT use `gh` CLI** - not supported.
+
+**Verify deployment:**
+```bash
+# Wait 2-3 minutes after push, then check:
+curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+# HTTP/2 200 = success
+# Check Last-Modified header - should be recent
+
+# Or open Actions in browser:
+# https://github.com/dylanrichardson/tv-streaming-availability-tracker/actions
+```
+
+**Verify changes are live:**
+```bash
+# Check page title
+curl -s https://dylanrichardson.github.io/tv-streaming-availability-tracker/ | grep "<title>"
+
+# Test the app with browser MCP or manual testing
+```
+
+### Worker Deployment
+
+```bash
+cd worker && npx wrangler deploy
+# Verify immediately:
+curl https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles
+```
+
 ## Common Issues
 
 **"Not found" on API calls**: Check CORS_ORIGIN in wrangler.toml, verify endpoint path
@@ -129,3 +162,5 @@ npm run dev
 **JustWatch errors**: API is unofficial and may rate-limit or change; check `wrangler tail`
 
 **Database queries failing**: Verify D1 binding name matches code (`env.DB`)
+
+**gh CLI errors**: Don't use `gh` CLI - not supported (multiple account issues). Use curl + web browser instead.
