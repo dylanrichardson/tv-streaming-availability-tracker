@@ -302,21 +302,19 @@ Frontend auto-deploys via GitHub Actions when you push to `main`.
 
 **Verify GitHub Actions succeeded:**
 
-Option 1 - Via CLI:
+Option 1 - Via HTTP:
 ```bash
-# Check latest workflow run status
-gh run list --limit 1
-
-# View detailed logs if needed
-gh run view --log
+# Wait 2-3 minutes, then check deployment
+curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+# HTTP/2 200 = success
+# Check Last-Modified header to verify it's recent
 ```
 
 Option 2 - Via Web:
 ```bash
-# Open Actions page in browser
-gh repo view --web
-# Navigate to "Actions" tab
-# Check latest "Deploy to GitHub Pages" workflow
+# Open Actions page in browser manually:
+# https://github.com/dylanrichardson/tv-streaming-availability-tracker/actions
+# Check latest "Deploy to GitHub Pages" workflow for green checkmark
 ```
 
 **Expected workflow steps:**
@@ -333,9 +331,9 @@ curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/
 ```
 
 If deployment fails:
-- Check GitHub Actions logs
+- Check GitHub Actions logs at: https://github.com/dylanrichardson/tv-streaming-availability-tracker/actions
 - Verify repository has Pages enabled (Settings → Pages)
-- Check branch is set to deploy from `gh-pages` or GitHub Actions
+- Check deployment source is set to "GitHub Actions"
 
 ### Step 3: Run Production AI Tests
 
@@ -386,9 +384,9 @@ Use this checklist for every deployment:
 
 **Deploy Frontend:**
 - [ ] `git push origin main`
-- [ ] Wait for GitHub Actions: `gh run list --limit 1`
-- [ ] Verify Actions succeeded (green checkmark)
+- [ ] Wait 2-3 minutes for GitHub Actions to complete
 - [ ] Verify site loads: `curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/`
+- [ ] Check Last-Modified header is recent (indicates new deployment)
 
 **Post-Deployment:**
 - [ ] Run quick smoke test (3 scenarios) on production

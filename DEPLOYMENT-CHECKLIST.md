@@ -54,13 +54,15 @@ git push origin main
 
 **Verify GitHub Actions:**
 ```bash
-# Wait 2-3 minutes, then check:
-gh run list --limit 1
-# Should show: ✓ Deploy to GitHub Pages
+# Wait 2-3 minutes for GitHub Actions to complete
+# Then check deployment status:
+curl -I https://dylanrichardson.github.io/tv-streaming-availability-tracker/
+# HTTP/2 200 means deployment succeeded
+# Check Last-Modified header to verify new deployment
 
-# Or open in browser:
-gh repo view --web
-# Navigate to Actions tab
+# Or open in browser manually:
+# https://github.com/dylanrichardson/tv-streaming-availability-tracker/actions
+# Look for green checkmark on latest workflow
 ```
 
 **Verify site deployed:**
