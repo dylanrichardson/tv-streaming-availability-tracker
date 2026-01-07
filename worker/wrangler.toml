@@ -5,7 +5,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "streamtrack"
-database_id = "placeholder-update-after-creation"
+database_id = "e36fd369-7ba0-4b46-9ed6-08f67279d8a2"
 
 [triggers]
 crons = ["0 6 * * *"]
