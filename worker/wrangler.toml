@@ -5,7 +5,11 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "streamtrack"
-database_id = "e36fd369-7ba0-4b46-9ed6-08f67279d8a2"
+# NOTE: database_id is deployment-specific. For self-serve deployments:
+# 1. Create your D1 database: wrangler d1 create streamtrack
+# 2. Copy the database_id from the output and add it here
+# 3. Run migrations: wrangler d1 execute streamtrack --remote --file=./schema.sql
+database_id = "e36fd369-7ba0-4b46-9ed6-08f67279d8a2"  # Current production deployment
 
 # Analytics Engine - Enable in Cloudflare dashboard first:
 # https://dash.cloudflare.com/54b03767ee6e2e0ed161d956fd0a83c5/workers/analytics-engine

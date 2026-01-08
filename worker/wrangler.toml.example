@@ -1,0 +1,23 @@
+name = "streamtrack-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "streamtrack"
+# Add your database_id here after creating the database
+# Run: wrangler d1 create streamtrack
+# Then copy the database_id from the output
+database_id = "your-database-id-here"
+
+# Analytics Engine - Enable in Cloudflare dashboard first:
+# https://dash.cloudflare.com/<your-account-id>/workers/analytics-engine
+# [[analytics_engine_datasets]]
+# binding = "ERROR_ANALYTICS"
+# dataset = "streamtrack_errors"
+
+[triggers]
+crons = ["*/15 * * * *"]  # Every 15 minutes - see CRON_INTERVAL_MINUTES in scheduled.ts
+
+[vars]
+CORS_ORIGIN = "*"

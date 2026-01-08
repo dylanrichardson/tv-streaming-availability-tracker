@@ -37,9 +37,34 @@ streamtrack/
 └── README.md     # This file
 ```
 
-## Quick Start
+## Deploy Your Own Instance
 
-### 1. Deploy Backend
+### Prerequisites
+
+- **Cloudflare account** (free tier works)
+- **Node.js 20+**
+- **Wrangler CLI**: `npm install -g wrangler`
+
+### Automated Setup
+
+Run the self-serve deployment script:
+
+```bash
+./setup.sh
+```
+
+This will:
+1. Authenticate with Cloudflare
+2. Create D1 database
+3. Deploy the worker
+4. Configure and build the frontend
+5. Provide deployment instructions
+
+### Manual Setup
+
+If you prefer manual setup:
+
+**1. Deploy Backend**
 
 ```bash
 cd worker
@@ -51,16 +76,32 @@ npx wrangler d1 execute streamtrack --remote --file=./schema.sql
 npx wrangler deploy
 ```
 
-### 2. Configure Frontend
+**2. Configure Frontend**
 
-Update `frontend/src/config.ts` with your Worker URL:
-```ts
-export const API_URL = 'https://your-worker.workers.dev';
+Create `frontend/.env.production` with your Worker URL:
+```bash
+VITE_API_URL=https://your-worker-name.your-subdomain.workers.dev
 ```
 
-### 3. Deploy Frontend
+**3. Deploy Frontend**
 
-Push to GitHub with Pages enabled, or run locally:
+**Option A: Cloudflare Pages (Recommended)**
+```bash
+cd frontend
+npm install
+npm run build
+npx wrangler pages deploy dist --project-name=streamtrack
+```
+
+**Option B: GitHub Pages**
+```bash
+# Push to GitHub, enable Pages in repo settings
+# Set build command: cd frontend && npm run build
+# Set publish directory: frontend/dist
+git push origin main
+```
+
+**Option C: Local Development**
 ```bash
 cd frontend
 npm install

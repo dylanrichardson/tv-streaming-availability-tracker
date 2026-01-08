@@ -4,7 +4,9 @@ Instructions for AI-assisted development of StreamTrack.
 
 ## Worktree Coordination
 
-When multiple Claude agents work on this codebase, use git worktrees with lockfile coordination to prevent conflicts.
+⚠️ **MANDATORY: ALL work must use the worktree coordination protocol below.**
+
+Use git worktrees with lockfile coordination to prevent conflicts between agents and ensure consistency.
 
 ### Symmetric Worktree Design
 
@@ -17,7 +19,9 @@ All worktrees are equal and follow the naming convention: `streamtrack-worktree-
 
 ### Worktree Lockfile Protocol
 
-**Before starting ANY task (documentation, code changes, etc.):**
+⚠️ **YOU MUST COMPLETE THESE STEPS BEFORE MAKING ANY CHANGES TO THE CODEBASE**
+
+**Before starting ANY task (documentation, code changes, tests, etc.):**
 
 1. **Find an available worktree** (or create a new one if all are locked):
 
@@ -133,11 +137,11 @@ Task: Implementing streaming service filter UI
 ```
 
 **Important notes:**
+- **MANDATORY for ALL tasks** - Even single-agent work must follow this protocol for consistency
 - The `.claude-lock` file must be in `.gitignore` (never commit it)
 - If a lockfile is older than 2 hours, consider it stale and safe to claim
 - Always clean up your lockfile when done, even if task fails
 - Lockfiles prevent race conditions when multiple agents start simultaneously
-- **Always use worktrees, even for single agent work** - this ensures consistency
 
 ### .gitignore Entry
 
