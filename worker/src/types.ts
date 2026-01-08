@@ -76,3 +76,34 @@ export interface SearchResponse {
   results: JustWatchSearchResult[];
   count: number;
 }
+
+export interface PreviewRequest {
+  titles: string[];
+}
+
+export interface PreviewResultItem {
+  query: string;
+  status: 'unique' | 'multiple' | 'none' | 'exists';
+  matches: JustWatchSearchResult[];
+  existingTitle?: Title;
+}
+
+export interface PreviewResponse {
+  results: PreviewResultItem[];
+}
+
+export interface ConfirmSelection {
+  query: string;
+  jwResult: JustWatchSearchResult;
+}
+
+export interface ConfirmRequest {
+  selections: ConfirmSelection[];
+}
+
+export interface ConfirmResultItem {
+  name: string;
+  status: 'created' | 'exists' | 'error';
+  title?: Title;
+  error?: string;
+}

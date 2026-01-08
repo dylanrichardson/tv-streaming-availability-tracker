@@ -1,5 +1,7 @@
 import type { Env } from './types';
 import { handleSync } from './routes/sync';
+import { handleSyncPreview } from './routes/sync-preview';
+import { handleSyncConfirm } from './routes/sync-confirm';
 import { handleHistory } from './routes/history';
 import { handleStats, handleRecommendations } from './routes/stats';
 import { handleTitles } from './routes/titles';
@@ -46,6 +48,10 @@ export default {
       // API Routes
       if (path === '/api/sync' && request.method === 'POST') {
         response = await handleSync(request, env);
+      } else if (path === '/api/sync/preview' && request.method === 'POST') {
+        response = await handleSyncPreview(request, env);
+      } else if (path === '/api/sync/confirm' && request.method === 'POST') {
+        response = await handleSyncConfirm(request, env);
       } else if (path === '/api/titles' && request.method === 'GET') {
         response = await handleTitles(request, env);
       } else if (path.startsWith('/api/history/') && request.method === 'GET') {

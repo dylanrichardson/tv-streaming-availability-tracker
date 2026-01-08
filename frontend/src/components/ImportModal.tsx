@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { SyncResponse } from '../types';
+import type { PreviewResponse, PreviewResultItem, ConfirmSelection, ConfirmResultItem } from '../types';
 import { fetchApi } from '../hooks/useApi';
+import { DisambiguationModal } from './DisambiguationModal';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -79,53 +80,73 @@ const BATCH_SIZE = 50;
 export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<SyncResponse | null>(null);
+  const [result, setResult] = useState<{ message: string; results: ConfirmResultItem[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'text' | 'file'>('text');
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Disambiguation state
+  const [showDisambiguation, setShowDisambiguation] = useState(false);
+  const [ambiguousResults, setAmbiguousResults] = useState<PreviewResultItem[]>([]);
+  const [autoImportResults, setAutoImportResults] = useState<PreviewResultItem[]>([]);
+
   if (!isOpen) return null;
 
-  const importTitlesInBatches = async (titles: string[]) => {
+  const previewTitlesInBatches = async (titles: string[]): Promise<PreviewResultItem[]> => {
     const batches: string[][] = [];
     for (let i = 0; i < titles.length; i += BATCH_SIZE) {
       batches.push(titles.slice(i, i + BATCH_SIZE));
     }
 
-    const allResults: SyncResponse['results'] = [];
-    let totalCreated = 0;
-    let totalExisting = 0;
-    let totalNotFound = 0;
+    const allResults: PreviewResultItem[] = [];
 
     for (let i = 0; i < batches.length; i++) {
       setProgress({ current: i + 1, total: batches.length });
 
       try {
-        const response = await fetchApi<SyncResponse>('/api/sync', {
+        const response = await fetchApi<PreviewResponse>('/api/sync/preview', {
           method: 'POST',
           body: { titles: batches[i] },
         });
 
         allResults.push(...response.results);
-
-        // Count statuses from this batch
-        response.results.forEach(r => {
-          if (r.status === 'created') totalCreated++;
-          else if (r.status === 'exists') totalExisting++;
-          else if (r.status === 'not_found') totalNotFound++;
-        });
       } catch (err) {
-        // On error, still add partial results and stop
-        throw new Error(`Batch ${i + 1}/${batches.length} failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        throw new Error(`Preview batch ${i + 1}/${batches.length} failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
 
     setProgress(null);
+    return allResults;
+  };
 
-    return {
-      message: `Processed ${allResults.length} titles: ${totalCreated} created, ${totalExisting} already existed, ${totalNotFound} not found`,
-      results: allResults,
-    };
+  const confirmSelections = async (selections: ConfirmSelection[]): Promise<ConfirmResultItem[]> => {
+    const batches: ConfirmSelection[][] = [];
+    for (let i = 0; i < selections.length; i += BATCH_SIZE) {
+      batches.push(selections.slice(i, i + BATCH_SIZE));
+    }
+
+    const allResults: ConfirmResultItem[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      setProgress({ current: i + 1, total: batches.length });
+
+      try {
+        const response = await fetchApi<{ message: string; results: ConfirmResultItem[] }>(
+          '/api/sync/confirm',
+          {
+            method: 'POST',
+            body: { selections: batches[i] },
+          }
+        );
+
+        allResults.push(...response.results);
+      } catch (err) {
+        throw new Error(`Confirm batch ${i + 1}/${batches.length} failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    }
+
+    setProgress(null);
+    return allResults;
   };
 
   const handleImport = async () => {
@@ -143,14 +164,119 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
     setError(null);
 
     try {
-      const response = await importTitlesInBatches(titles);
-      setResult(response);
-      onImported();
+      // Step 1: Preview titles to check for ambiguity
+      const previewResults = await previewTitlesInBatches(titles);
+
+      // Separate results by status
+      const ambiguous = previewResults.filter((r) => r.status === 'multiple');
+      const unique = previewResults.filter((r) => r.status === 'unique');
+      const exists = previewResults.filter((r) => r.status === 'exists');
+      const notFound = previewResults.filter((r) => r.status === 'none');
+
+      // If there are ambiguous titles, show disambiguation modal
+      if (ambiguous.length > 0) {
+        setAmbiguousResults(ambiguous);
+        setAutoImportResults([...unique, ...exists, ...notFound]);
+        setShowDisambiguation(true);
+        setLoading(false);
+      } else {
+        // No ambiguous titles, proceed to confirm unique ones
+        await proceedWithConfirmation(unique, exists, notFound);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import titles');
+      setLoading(false);
+    }
+  };
+
+  const proceedWithConfirmation = async (
+    unique: PreviewResultItem[],
+    exists: PreviewResultItem[],
+    notFound: PreviewResultItem[]
+  ) => {
+    try {
+      // Auto-select unique matches and confirm them
+      const selections: ConfirmSelection[] = unique.map((item) => ({
+        query: item.query,
+        jwResult: item.matches[0],
+      }));
+
+      let confirmed: ConfirmResultItem[] = [];
+      if (selections.length > 0) {
+        confirmed = await confirmSelections(selections);
+      }
+
+      // Combine with already-exists and not-found results
+      const existsResults: ConfirmResultItem[] = exists.map((item) => ({
+        name: item.query,
+        status: 'exists' as const,
+        title: item.existingTitle,
+      }));
+
+      const notFoundResults: ConfirmResultItem[] = notFound.map((item) => ({
+        name: item.query,
+        status: 'error' as const,
+        error: 'Not found',
+      }));
+
+      const allResults = [...confirmed, ...existsResults, ...notFoundResults];
+
+      const created = allResults.filter((r) => r.status === 'created').length;
+      const existing = allResults.filter((r) => r.status === 'exists').length;
+      const errors = allResults.filter((r) => r.status === 'error').length;
+
+      setResult({
+        message: `Processed ${allResults.length} titles: ${created} created, ${existing} already existed, ${errors} not found`,
+        results: allResults,
+      });
+
+      onImported();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm titles');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDisambiguationConfirm = async (selections: ConfirmSelection[]) => {
+    setShowDisambiguation(false);
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Confirm user's selections
+      const confirmed = await confirmSelections(selections);
+
+      // Also confirm auto-import results (unique matches)
+      const autoUnique = autoImportResults.filter((r) => r.status === 'unique');
+      const autoExists = autoImportResults.filter((r) => r.status === 'exists');
+      const autoNotFound = autoImportResults.filter((r) => r.status === 'none');
+
+      await proceedWithConfirmation(autoUnique, autoExists, autoNotFound);
+
+      // Merge the disambiguation results with auto results
+      const currentResults = result?.results || [];
+      const allResults = [...confirmed, ...currentResults];
+
+      const created = allResults.filter((r) => r.status === 'created').length;
+      const existing = allResults.filter((r) => r.status === 'exists').length;
+      const errors = allResults.filter((r) => r.status === 'error').length;
+
+      setResult({
+        message: `Processed ${allResults.length} titles: ${created} created, ${existing} already existed, ${errors} not found`,
+        results: allResults,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm selections');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisambiguationCancel = () => {
+    setShowDisambiguation(false);
+    setAmbiguousResults([]);
+    setAutoImportResults([]);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,13 +296,29 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
         return;
       }
 
-      const response = await importTitlesInBatches(titles);
-      setResult(response);
-      onImported();
+      // Use the same preview flow as text import
+      const previewResults = await previewTitlesInBatches(titles);
+
+      // Separate results by status
+      const ambiguous = previewResults.filter((r) => r.status === 'multiple');
+      const unique = previewResults.filter((r) => r.status === 'unique');
+      const exists = previewResults.filter((r) => r.status === 'exists');
+      const notFound = previewResults.filter((r) => r.status === 'none');
+
+      // If there are ambiguous titles, show disambiguation modal
+      if (ambiguous.length > 0) {
+        setAmbiguousResults(ambiguous);
+        setAutoImportResults([...unique, ...exists, ...notFound]);
+        setShowDisambiguation(true);
+        setLoading(false);
+      } else {
+        // No ambiguous titles, proceed to confirm unique ones
+        await proceedWithConfirmation(unique, exists, notFound);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import file');
-    } finally {
       setLoading(false);
+    } finally {
       // Reset file input
       event.target.value = '';
     }
@@ -190,8 +332,9 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg max-w-lg w-full p-6">
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-gray-800 rounded-lg max-w-lg w-full p-6">
         <h2 className="text-xl font-semibold mb-4">Import Titles</h2>
 
         {!result ? (
@@ -355,7 +498,15 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
             </div>
           </>
         )}
+        </div>
       </div>
-    </div>
+
+      <DisambiguationModal
+        isOpen={showDisambiguation}
+        ambiguousResults={ambiguousResults}
+        onConfirm={handleDisambiguationConfirm}
+        onCancel={handleDisambiguationCancel}
+      />
+    </>
   );
 }
