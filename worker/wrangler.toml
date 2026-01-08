@@ -8,7 +8,7 @@ database_name = "streamtrack"
 database_id = "e36fd369-7ba0-4b46-9ed6-08f67279d8a2"
 
 [triggers]
-crons = ["0 */4 * * *"]  # Every 4 hours (6 times per day) to spread load
+crons = ["*/15 * * * *"]  # Every 15 minutes - see CRON_INTERVAL_MINUTES in scheduled.ts
 
 [vars]
 CORS_ORIGIN = "*"

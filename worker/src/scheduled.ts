@@ -3,8 +3,9 @@ import { getAllTitles, getStaleTitles, getAllServices, getServiceBySlug, logAvai
 import { getTitleAvailability } from './services/justwatch';
 
 // Configuration
+// IMPORTANT: If you change CRON_INTERVAL_MINUTES, also update the cron schedule in wrangler.toml
 const CONFIG = {
-  CRON_INTERVAL_HOURS: 4,
+  CRON_INTERVAL_MINUTES: 15, // Must match wrangler.toml cron schedule
   TARGET_CHECK_FREQUENCY_DAYS: 7,
   API_DELAY_MS: 500,
   RATE_LIMIT_BACKOFF_MS: 5000,
@@ -20,7 +21,7 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   // Calculate dynamic batch size for steady-state checks
   const totalTitles = allTitles.length;
-  const runsPerPeriod = (CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24) / CONFIG.CRON_INTERVAL_HOURS;
+  const runsPerPeriod = (CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24 * 60) / CONFIG.CRON_INTERVAL_MINUTES;
   const steadyStateBatchSize = Math.max(1, Math.ceil(totalTitles / runsPerPeriod));
 
   // Prioritize never-checked titles (from bulk imports)
