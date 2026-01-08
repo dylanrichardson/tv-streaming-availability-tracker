@@ -58,29 +58,36 @@ export function TitleTimeline({ title }: TitleTimelineProps) {
     );
   }
 
-  if (!history || history.history.length === 0) {
-    const lastCheckedDate = history?.title.last_checked
-      ? new Date(history.title.last_checked).toLocaleDateString()
-      : null;
-
+  // If no history but has been checked, show single-date timeline with empty bars
+  if (!history) {
     return (
       <div className="bg-gray-800 rounded-lg p-6 text-center">
         <h3 className="text-lg font-medium mb-2">{title.name}</h3>
-        {lastCheckedDate ? (
-          <p className="text-gray-500">
-            Checked on {lastCheckedDate}. Not currently available on any tracked streaming services.
-          </p>
-        ) : (
-          <p className="text-gray-500">
-            No availability history yet. Data will appear after the daily check runs.
-          </p>
-        )}
+        <p className="text-gray-500">
+          No availability history yet. Data will appear after the daily check runs.
+        </p>
       </div>
     );
   }
 
   // Get unique dates sorted
-  const dates = [...new Set(history.history.map((h) => h.date))].sort();
+  let dates: string[];
+  if (history.history.length === 0 && history.title.last_checked) {
+    // Title was checked but no availability - create single-date timeline
+    dates = [new Date(history.title.last_checked).toISOString().split('T')[0]];
+  } else if (history.history.length === 0) {
+    // Never checked - show message
+    return (
+      <div className="bg-gray-800 rounded-lg p-6 text-center">
+        <h3 className="text-lg font-medium mb-2">{title.name}</h3>
+        <p className="text-gray-500">
+          No availability history yet. Data will appear after the daily check runs.
+        </p>
+      </div>
+    );
+  } else {
+    dates = [...new Set(history.history.map((h) => h.date))].sort();
+  }
 
   return (
     <div className="bg-gray-800 rounded-lg p-6">
