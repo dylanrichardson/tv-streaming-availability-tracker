@@ -6,68 +6,85 @@ Instructions for AI-assisted development of StreamTrack.
 
 When multiple Claude agents work on this codebase, use git worktrees with lockfile coordination to prevent conflicts.
 
+### Symmetric Worktree Design
+
+All worktrees are equal and follow the naming convention: `streamtrack-worktree-N` where N starts at **0**.
+
+- **streamtrack-worktree-0**: The original repository clone (renamed for consistency)
+- **streamtrack-worktree-1, 2, 3...**: Additional worktrees created on demand
+
+**Key principle:** worktree-0 is NOT special. It follows the same lockfile protocol as all other worktrees.
+
 ### Worktree Lockfile Protocol
 
-**Before starting any task:**
+**Before starting ANY task (documentation, code changes, etc.):**
 
 1. **Find an available worktree** (or create a new one if all are locked):
 
 ```bash
-# Check for existing worktrees and their lock status
-# Look for worktree-1, worktree-2, etc. in parent directory
-for i in {1..10}; do
-  WORKTREE_PATH="../streamtrack-worktree-$i"
+# Check for existing worktrees starting from 0
+# Prefer reusing existing worktrees over creating new ones
+WORKTREE_FOUND=false
+for i in {0..10}; do
+  WORKTREE_PATH="/Users/dylan.richardson/toast/git-repos/streamtrack-worktree-$i"
   LOCKFILE="$WORKTREE_PATH/.claude-lock"
 
   if [ -d "$WORKTREE_PATH" ]; then
     if [ ! -f "$LOCKFILE" ]; then
       # Found an available existing worktree
       echo "Available worktree: $WORKTREE_PATH"
+      cd "$WORKTREE_PATH"
+      WORKTREE_FOUND=true
       break
     fi
   else
     # No worktree at this number, we can create it
-    echo "Can create new worktree: $WORKTREE_PATH"
+    echo "Creating new worktree: $WORKTREE_PATH"
+    # Create from worktree-0 if we're not in a worktree already
+    cd /Users/dylan.richardson/toast/git-repos/streamtrack-worktree-0
+    git worktree add "$WORKTREE_PATH" -b "worktree-$i-$(date +%s)"
+    cd "$WORKTREE_PATH"
+    WORKTREE_FOUND=true
     break
   fi
 done
 ```
 
-2. **Create worktree if needed** (if none exist or all are locked):
+2. **Claim the worktree with a lockfile**:
 
 ```bash
-# Determine next worktree number
-NEXT_NUM=1
-while [ -d "../streamtrack-worktree-$NEXT_NUM" ]; do
-  NEXT_NUM=$((NEXT_NUM + 1))
-done
-
-# Create new worktree (using current branch or main)
-git worktree add ../streamtrack-worktree-$NEXT_NUM
-
-# Navigate to it
-cd ../streamtrack-worktree-$NEXT_NUM
-```
-
-3. **Claim the worktree with a lockfile**:
-
-```bash
-# Create lockfile with timestamp and agent identifier
+# Create lockfile with timestamp and task description
 echo "Locked by Claude agent at $(date -Iseconds)" > .claude-lock
 echo "PID: $$" >> .claude-lock
 echo "Task: <brief task description>" >> .claude-lock
 
-# Ensure lockfile is gitignored (should already be in .gitignore)
+# Verify lockfile is gitignored (should already be in .gitignore)
+```
+
+3. **Do your work** (make changes, commit, test)
+
+4. **Merge to main and push**:
+
+```bash
+# Update main branch locally
+git checkout main
+git pull origin main --rebase
+
+# Merge your changes
+git merge <your-branch> --no-ff -m "Descriptive commit message"
+
+# Push to origin
+git push origin main
 ```
 
 **After completing task:**
 
 ```bash
-# Remove lockfile to release worktree
+# Remove lockfile to release worktree for next agent
 rm -f .claude-lock
 
-# Optional: Return to main worktree
-cd /Users/dylan.richardson/toast/git-repos/streamtrack
+# Clean up feature branch
+git branch -d <your-branch>
 ```
 
 ### Worktree Management Commands
@@ -76,19 +93,22 @@ cd /Users/dylan.richardson/toast/git-repos/streamtrack
 # List all worktrees and their status
 git worktree list
 
-# Check lock status of all worktrees
-for wt in ../streamtrack-worktree-*; do
-  if [ -d "$wt" ]; then
-    if [ -f "$wt/.claude-lock" ]; then
-      echo "LOCKED: $wt ($(cat $wt/.claude-lock | head -n 1))"
+# Check lock status of all worktrees (run from any worktree)
+for i in {0..10}; do
+  WORKTREE_PATH="/Users/dylan.richardson/toast/git-repos/streamtrack-worktree-$i"
+  if [ -d "$WORKTREE_PATH" ]; then
+    if [ -f "$WORKTREE_PATH/.claude-lock" ]; then
+      echo "LOCKED: worktree-$i"
+      head -n 3 "$WORKTREE_PATH/.claude-lock" | sed 's/^/  /'
     else
-      echo "AVAILABLE: $wt"
+      echo "AVAILABLE: worktree-$i"
     fi
   fi
 done
 
 # Remove stale worktree (if agent crashed and didn't cleanup)
-git worktree remove ../streamtrack-worktree-X
+git worktree remove /Users/dylan.richardson/toast/git-repos/streamtrack-worktree-X
+git branch -D worktree-X-<timestamp>
 
 # Prune stale worktree references
 git worktree prune
@@ -97,14 +117,13 @@ git worktree prune
 ### Worktree Strategy
 
 **Prefer reusing existing worktrees:**
-- Avoids creating many worktrees unnecessarily
-- Faster than creating new ones
-- Check worktree-1, worktree-2, etc. in sequence
+- Avoids creating many worktrees unnecessarily (faster startup)
+- Check worktree-0, 1, 2, 3... in sequence
+- First unlocked worktree wins
 
 **Create new worktrees when:**
-- No worktrees exist yet
-- All existing worktrees are locked
-- Follow naming convention: streamtrack-worktree-N where N starts at 1
+- All existing worktrees are locked (parallel agents working)
+- Follow naming convention: streamtrack-worktree-N where N is the next sequential number
 
 **Lockfile contents (.claude-lock):**
 ```
@@ -118,6 +137,7 @@ Task: Implementing streaming service filter UI
 - If a lockfile is older than 2 hours, consider it stale and safe to claim
 - Always clean up your lockfile when done, even if task fails
 - Lockfiles prevent race conditions when multiple agents start simultaneously
+- **Always use worktrees, even for single agent work** - this ensures consistency
 
 ### .gitignore Entry
 
