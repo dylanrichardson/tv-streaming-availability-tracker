@@ -29,5 +29,5 @@ npm-debug.log*
 # Test coverage
 coverage/
 
-# Claude agent coordination
-.claude-lock
+# Agent coordination
+.agent-lock

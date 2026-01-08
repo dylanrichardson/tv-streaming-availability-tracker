@@ -4,113 +4,53 @@ Instructions for AI-assisted development of StreamTrack.
 
 ## Worktree Coordination
 
-⚠️ **MANDATORY: ALL work must use the worktree coordination protocol below.**
+⚠️ **This project uses automated worktree coordination via `agent.sh` - user must launch agents through this script.**
 
-Use git worktrees with lockfile coordination to prevent conflicts between agents and ensure consistency.
+### How It Works
 
-### Symmetric Worktree Design
+The user launches agents with:
+```bash
+./agent.sh [claude arguments]
+```
+
+The script automatically:
+1. **Finds an available worktree** (checks streamtrack-worktree-0, 1, 2... in sequence)
+2. **Creates new worktree** if all existing ones are locked (parallel agents)
+3. **Claims worktree** with `.agent-lock` file containing timestamp and PID
+4. **Launches Claude** in that isolated worktree directory
+5. **Cleans up lockfile** automatically on exit (even if Claude crashes)
+
+### Worktree Design
 
 All worktrees are equal and follow the naming convention: `streamtrack-worktree-N` where N starts at **0**.
 
-- **streamtrack-worktree-0**: The original repository clone (renamed for consistency)
+- **streamtrack-worktree-0**: The original repository clone
 - **streamtrack-worktree-1, 2, 3...**: Additional worktrees created on demand
 
-**Key principle:** worktree-0 is NOT special. It follows the same lockfile protocol as all other worktrees.
+**Key principle:** worktree-0 is NOT special. It follows the same lockfile protocol as all others.
 
-### Worktree Lockfile Protocol
+### Manual Worktree Management
 
-⚠️ **YOU MUST COMPLETE THESE STEPS BEFORE MAKING ANY CHANGES TO THE CODEBASE**
-
-**Before starting ANY task (documentation, code changes, tests, etc.):**
-
-1. **Find an available worktree** (or create a new one if all are locked):
-
-```bash
-# Check for existing worktrees starting from 0
-# Prefer reusing existing worktrees over creating new ones
-WORKTREE_FOUND=false
-for i in {0..10}; do
-  WORKTREE_PATH="/Users/dylan.richardson/toast/git-repos/streamtrack-worktree-$i"
-  LOCKFILE="$WORKTREE_PATH/.claude-lock"
-
-  if [ -d "$WORKTREE_PATH" ]; then
-    if [ ! -f "$LOCKFILE" ]; then
-      # Found an available existing worktree
-      echo "Available worktree: $WORKTREE_PATH"
-      cd "$WORKTREE_PATH"
-      WORKTREE_FOUND=true
-      break
-    fi
-  else
-    # No worktree at this number, we can create it
-    echo "Creating new worktree: $WORKTREE_PATH"
-    # Create from worktree-0 if we're not in a worktree already
-    cd /Users/dylan.richardson/toast/git-repos/streamtrack-worktree-0
-    git worktree add "$WORKTREE_PATH" -b "worktree-$i-$(date +%s)"
-    cd "$WORKTREE_PATH"
-    WORKTREE_FOUND=true
-    break
-  fi
-done
-```
-
-2. **Claim the worktree with a lockfile**:
-
-```bash
-# Create lockfile with timestamp and task description
-echo "Locked by Claude agent at $(date -Iseconds)" > .claude-lock
-echo "PID: $$" >> .claude-lock
-echo "Task: <brief task description>" >> .claude-lock
-
-# Verify lockfile is gitignored (should already be in .gitignore)
-```
-
-3. **Do your work** (make changes, commit, test)
-
-4. **Merge to main and push**:
-
-```bash
-# Update main branch locally
-git checkout main
-git pull origin main --rebase
-
-# Merge your changes
-git merge <your-branch> --no-ff -m "Descriptive commit message"
-
-# Push to origin
-git push origin main
-```
-
-**After completing task:**
-
-```bash
-# Remove lockfile to release worktree for next agent
-rm -f .claude-lock
-
-# Clean up feature branch
-git branch -d <your-branch>
-```
-
-### Worktree Management Commands
+These commands are for troubleshooting only (normal users run `agent.sh`):
 
 ```bash
 # List all worktrees and their status
 git worktree list
 
-# Check lock status of all worktrees (run from any worktree)
+# Check lock status of all worktrees
 for i in {0..10}; do
   WORKTREE_PATH="/Users/dylan.richardson/toast/git-repos/streamtrack-worktree-$i"
   if [ -d "$WORKTREE_PATH" ]; then
-    if [ -f "$WORKTREE_PATH/.claude-lock" ]; then
+    if [ -f "$WORKTREE_PATH/.agent-lock" ]; then
       echo "LOCKED: worktree-$i"
-      head -n 3 "$WORKTREE_PATH/.claude-lock" | sed 's/^/  /'
+      head -n 3 "$WORKTREE_PATH/.agent-lock" | sed 's/^/  /'
     else
       echo "AVAILABLE: worktree-$i"
     fi
   fi
 done
 
-# Remove stale worktree (if agent crashed and didn't cleanup)
+# Remove stale worktree (if needed)
 git worktree remove /Users/dylan.richardson/toast/git-repos/streamtrack-worktree-X
 git branch -D worktree-X-<timestamp>
 
@@ -118,38 +58,13 @@ git branch -D worktree-X-<timestamp>
 git worktree prune
 ```
 
-### Worktree Strategy
+### Important Notes
 
-**Prefer reusing existing worktrees:**
-- Avoids creating many worktrees unnecessarily (faster startup)
-- Check worktree-0, 1, 2, 3... in sequence
-- First unlocked worktree wins
-
-**Create new worktrees when:**
-- All existing worktrees are locked (parallel agents working)
-- Follow naming convention: streamtrack-worktree-N where N is the next sequential number
-
-**Lockfile contents (.claude-lock):**
-```
-Locked by Claude agent at 2026-01-08T14:30:00-08:00
-PID: 12345
-Task: Implementing streaming service filter UI
-```
-
-**Important notes:**
-- **MANDATORY for ALL tasks** - Even single-agent work must follow this protocol for consistency
-- The `.claude-lock` file must be in `.gitignore` (never commit it)
-- If a lockfile is older than 2 hours, consider it stale and safe to claim
-- Always clean up your lockfile when done, even if task fails
-- Lockfiles prevent race conditions when multiple agents start simultaneously
-
-### .gitignore Entry
-
-Ensure this line exists in `.gitignore`:
-
-```
-.claude-lock
-```
+- **Lockfiles are automatic** - `agent.sh` handles everything (claim, cleanup, crash recovery)
+- **Stale locks** - Locks older than 2 hours are automatically reclaimed by script
+- **Never commit** - `.agent-lock` files are in `.gitignore` and never committed
+- **Parallel agents** - Multiple agents can work simultaneously in different worktrees
+- **Crash-safe** - Signal traps ensure cleanup even if Claude crashes
 
 ---
 
