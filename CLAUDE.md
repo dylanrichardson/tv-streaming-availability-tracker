@@ -2,6 +2,131 @@
 
 Instructions for AI-assisted development of StreamTrack.
 
+## Worktree Coordination
+
+When multiple Claude agents work on this codebase, use git worktrees with lockfile coordination to prevent conflicts.
+
+### Worktree Lockfile Protocol
+
+**Before starting any task:**
+
+1. **Find an available worktree** (or create a new one if all are locked):
+
+```bash
+# Check for existing worktrees and their lock status
+# Look for worktree-1, worktree-2, etc. in parent directory
+for i in {1..10}; do
+  WORKTREE_PATH="../streamtrack-worktree-$i"
+  LOCKFILE="$WORKTREE_PATH/.claude-lock"
+
+  if [ -d "$WORKTREE_PATH" ]; then
+    if [ ! -f "$LOCKFILE" ]; then
+      # Found an available existing worktree
+      echo "Available worktree: $WORKTREE_PATH"
+      break
+    fi
+  else
+    # No worktree at this number, we can create it
+    echo "Can create new worktree: $WORKTREE_PATH"
+    break
+  fi
+done
+```
+
+2. **Create worktree if needed** (if none exist or all are locked):
+
+```bash
+# Determine next worktree number
+NEXT_NUM=1
+while [ -d "../streamtrack-worktree-$NEXT_NUM" ]; do
+  NEXT_NUM=$((NEXT_NUM + 1))
+done
+
+# Create new worktree (using current branch or main)
+git worktree add ../streamtrack-worktree-$NEXT_NUM
+
+# Navigate to it
+cd ../streamtrack-worktree-$NEXT_NUM
+```
+
+3. **Claim the worktree with a lockfile**:
+
+```bash
+# Create lockfile with timestamp and agent identifier
+echo "Locked by Claude agent at $(date -Iseconds)" > .claude-lock
+echo "PID: $$" >> .claude-lock
+echo "Task: <brief task description>" >> .claude-lock
+
+# Ensure lockfile is gitignored (should already be in .gitignore)
+```
+
+**After completing task:**
+
+```bash
+# Remove lockfile to release worktree
+rm -f .claude-lock
+
+# Optional: Return to main worktree
+cd /Users/dylan.richardson/toast/git-repos/streamtrack
+```
+
+### Worktree Management Commands
+
+```bash
+# List all worktrees and their status
+git worktree list
+
+# Check lock status of all worktrees
+for wt in ../streamtrack-worktree-*; do
+  if [ -d "$wt" ]; then
+    if [ -f "$wt/.claude-lock" ]; then
+      echo "LOCKED: $wt ($(cat $wt/.claude-lock | head -n 1))"
+    else
+      echo "AVAILABLE: $wt"
+    fi
+  fi
+done
+
+# Remove stale worktree (if agent crashed and didn't cleanup)
+git worktree remove ../streamtrack-worktree-X
+
+# Prune stale worktree references
+git worktree prune
+```
+
+### Worktree Strategy
+
+**Prefer reusing existing worktrees:**
+- Avoids creating many worktrees unnecessarily
+- Faster than creating new ones
+- Check worktree-1, worktree-2, etc. in sequence
+
+**Create new worktrees when:**
+- No worktrees exist yet
+- All existing worktrees are locked
+- Follow naming convention: streamtrack-worktree-N where N starts at 1
+
+**Lockfile contents (.claude-lock):**
+```
+Locked by Claude agent at 2026-01-08T14:30:00-08:00
+PID: 12345
+Task: Implementing streaming service filter UI
+```
+
+**Important notes:**
+- The `.claude-lock` file must be in `.gitignore` (never commit it)
+- If a lockfile is older than 2 hours, consider it stale and safe to claim
+- Always clean up your lockfile when done, even if task fails
+- Lockfiles prevent race conditions when multiple agents start simultaneously
+
+### .gitignore Entry
+
+Ensure this line exists in `.gitignore`:
+
+```
+.claude-lock
+```
+
 ## Testing & Monitoring
 
 ### Browser Testing (MCP Tool)
