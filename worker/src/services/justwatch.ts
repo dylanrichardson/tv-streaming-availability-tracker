@@ -133,6 +133,67 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
   }
 }
 
+export async function searchTitles(query: string, limit: number = 20): Promise<JustWatchSearchResult[]> {
+  try {
+    const response = await fetch(JUSTWATCH_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'App-Version': '3.13.0-web-web',
+      },
+      body: JSON.stringify({
+        operationName: 'GetSearchResults',
+        variables: {
+          country: COUNTRY,
+          language: LANGUAGE,
+          searchQuery: query,
+          first: limit,
+          location: 'SearchSuggester',
+        },
+        query: SEARCH_QUERY,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`JustWatch search failed: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json() as any;
+    const edges = data?.data?.searchTitles?.edges;
+
+    if (!edges || edges.length === 0) {
+      return [];
+    }
+
+    // Map all results, not just the first one
+    return edges.map((edge: any) => {
+      const node = edge.node;
+
+      // Format poster URL by replacing placeholders
+      let posterUrl = node.content.posterUrl;
+      if (posterUrl) {
+        posterUrl = posterUrl
+          .replace('{profile}', 's332')  // Use s332 size (332px width)
+          .replace('{format}', 'webp');  // Use webp format
+        posterUrl = `https://images.justwatch.com${posterUrl}`;
+      }
+
+      return {
+        id: node.objectId,
+        title: node.content.title,
+        object_type: node.objectType === 'SHOW' ? 'show' : 'movie',
+        fullPath: node.content.fullPath,
+        poster: posterUrl,
+        offers: node.offers || [],
+      };
+    });
+  } catch (error) {
+    console.error('JustWatch search error:', error);
+    return [];
+  }
+}
+
 async function getTitleByPath(fullPath: string): Promise<any | null> {
   try {
     const response = await fetch(JUSTWATCH_GRAPHQL, {

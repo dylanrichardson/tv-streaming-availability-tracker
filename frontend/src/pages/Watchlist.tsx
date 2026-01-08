@@ -4,11 +4,13 @@ import { useTitles, invalidateTitlesCache } from '../hooks/useTitles';
 import { TitleList } from '../components/TitleList';
 import { TitleTimeline } from '../components/TitleTimeline';
 import { ImportModal } from '../components/ImportModal';
+import { SearchModal } from '../components/SearchModal';
 
 export function Watchlist() {
   const { titles, loading, error, progress, reload } = useTitles();
   const [selectedTitle, setSelectedTitle] = useState<Title | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleImported = () => {
     invalidateTitlesCache();
@@ -34,12 +36,20 @@ export function Watchlist() {
             </p>
           )}
         </div>
-        <button
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-          onClick={() => setShowImport(true)}
-        >
-          + Import Titles
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+            onClick={() => setShowSearch(true)}
+          >
+            🔍 Search Titles
+          </button>
+          <button
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            onClick={() => setShowImport(true)}
+          >
+            + Import Titles
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -118,6 +128,13 @@ export function Watchlist() {
         isOpen={showImport}
         onClose={() => setShowImport(false)}
         onImported={handleImported}
+      />
+
+      <SearchModal
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onImported={handleImported}
+        existingTitles={titles}
       />
     </div>
   );

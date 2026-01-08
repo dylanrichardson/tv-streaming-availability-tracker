@@ -7,6 +7,7 @@ import { handleBackfill } from './routes/backfill';
 import { handleScheduled } from './scheduled';
 import { handleLogError } from './routes/logError';
 import { handleGetErrors, handleGetErrorStats } from './routes/errors';
+import { handleSearch } from './routes/search';
 
 function corsHeaders(origin: string): HeadersInit {
   return {
@@ -67,6 +68,8 @@ export default {
         response = await handleGetErrors(request, env);
       } else if (path === '/api/errors/stats' && request.method === 'GET') {
         response = await handleGetErrorStats(env);
+      } else if (path === '/api/search' && request.method === 'GET') {
+        response = await handleSearch(request, env);
       } else {
         response = Response.json({ error: 'Not found' }, { status: 404 });
       }

@@ -70,3 +70,9 @@ export interface StatsResponse {
   services: ServiceCoverage[];
   totalTitles: number;
 }
+
+export interface SearchResponse {
+  query: string;
+  results: JustWatchSearchResult[];
+  count: number;
+}

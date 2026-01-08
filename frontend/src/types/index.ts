@@ -67,3 +67,17 @@ export interface RecommendationsResponse {
   titles: Title[];
   count: number;
 }
+
+export interface SearchResult {
+  justwatch_id: number;
+  name: string;
+  type: 'movie' | 'tv';
+  poster_url: string | null;
+  full_path: string | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  count: number;
+}
