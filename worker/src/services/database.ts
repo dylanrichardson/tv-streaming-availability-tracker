@@ -225,11 +225,29 @@ export async function getServiceStats(db: D1Database): Promise<StatsResponse> {
   return { services: servicesCoverage, totalTitles };
 }
 
-export async function getTitlesWithCurrentAvailability(db: D1Database): Promise<(Title & { currentServices: string[] })[]> {
-  const titles = await getAllTitles(db);
+export async function getTitlesCount(db: D1Database): Promise<number> {
+  const result = await db.prepare('SELECT COUNT(*) as count FROM titles').first<{ count: number }>();
+  return result?.count || 0;
+}
+
+export async function getTitlesWithCurrentAvailability(db: D1Database, limit?: number, offset?: number): Promise<(Title & { currentServices: string[] })[]> {
+  // Build query with optional pagination
+  let query = 'SELECT * FROM titles ORDER BY name';
+  const params: any[] = [];
+
+  if (limit !== undefined && offset !== undefined) {
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+
+  const result = await db.prepare(query).bind(...params).all<Title>();
+  const titles = (result.results || []).map(title => ({
+    ...title,
+    poster_url: fixPosterUrl(title.poster_url)
+  }));
 
   // Get latest availability for each title
-  const result: (Title & { currentServices: string[] })[] = [];
+  const resultWithServices: (Title & { currentServices: string[] })[] = [];
 
   for (const title of titles) {
     const latestDate = await db
@@ -252,16 +270,16 @@ export async function getTitlesWithCurrentAvailability(db: D1Database): Promise<
         .bind(title.id, latestDate.latest_date)
         .all<{ name: string }>();
 
-      result.push({
+      resultWithServices.push({
         ...title,
         currentServices: (services.results || []).map((s) => s.name),
       });
     } else {
-      result.push({ ...title, currentServices: [] });
+      resultWithServices.push({ ...title, currentServices: [] });
     }
   }
 
-  return result;
+  return resultWithServices;
 }
 
 export async function getUnavailableTitles(db: D1Database, monthsThreshold: number): Promise<Title[]> {

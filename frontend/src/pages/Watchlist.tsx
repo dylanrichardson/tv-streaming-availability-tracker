@@ -1,29 +1,19 @@
-import { useEffect, useState } from 'react';
-import type { Title, TitlesResponse } from '../types';
-import { fetchApi } from '../hooks/useApi';
+import { useState } from 'react';
+import type { Title } from '../types';
+import { useTitles, invalidateTitlesCache } from '../hooks/useTitles';
 import { TitleList } from '../components/TitleList';
 import { TitleTimeline } from '../components/TitleTimeline';
 import { ImportModal } from '../components/ImportModal';
 
 export function Watchlist() {
-  const [titles, setTitles] = useState<(Title & { currentServices: string[] })[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { titles, loading, error, progress, reload } = useTitles();
   const [selectedTitle, setSelectedTitle] = useState<Title | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  const loadTitles = () => {
-    setLoading(true);
-    setError(null);
-    fetchApi<TitlesResponse>('/api/titles')
-      .then((data) => setTitles(data.titles))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+  const handleImported = () => {
+    invalidateTitlesCache();
+    reload();
   };
-
-  useEffect(() => {
-    loadTitles();
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -31,7 +21,13 @@ export function Watchlist() {
         <div>
           <h2 className="text-2xl font-bold">Tracked Titles</h2>
           {loading ? (
-            <div className="h-5 w-32 bg-gray-700 rounded animate-pulse mt-1"></div>
+            progress ? (
+              <p className="text-gray-400 text-sm mt-1">
+                Loading page {progress.current} of {progress.total}... ({titles.length} titles loaded)
+              </p>
+            ) : (
+              <div className="h-5 w-32 bg-gray-700 rounded animate-pulse mt-1"></div>
+            )
           ) : (
             <p className="text-gray-400 text-sm mt-1">
               {titles.length} title{titles.length !== 1 ? 's' : ''} tracked · Shared database
@@ -79,7 +75,7 @@ export function Watchlist() {
           <p className="text-red-400">{error}</p>
           <button
             className="text-sm text-red-300 underline mt-2"
-            onClick={loadTitles}
+            onClick={reload}
           >
             Try again
           </button>
@@ -121,7 +117,7 @@ export function Watchlist() {
       <ImportModal
         isOpen={showImport}
         onClose={() => setShowImport(false)}
-        onImported={loadTitles}
+        onImported={handleImported}
       />
     </div>
   );

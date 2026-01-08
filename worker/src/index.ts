@@ -44,7 +44,7 @@ export default {
       if (path === '/api/sync' && request.method === 'POST') {
         response = await handleSync(request, env);
       } else if (path === '/api/titles' && request.method === 'GET') {
-        response = await handleTitles(env);
+        response = await handleTitles(request, env);
       } else if (path.startsWith('/api/history/') && request.method === 'GET') {
         const titleId = path.split('/api/history/')[1];
         response = await handleHistory(titleId, env);

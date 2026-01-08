@@ -53,6 +53,13 @@ export interface SyncResponse {
 
 export interface TitlesResponse {
   titles: (Title & { currentServices: string[] })[];
+  pagination?: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
 }
 
 export interface RecommendationsResponse {
