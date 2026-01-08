@@ -18,20 +18,29 @@ export async function handleScheduled(env: Env): Promise<void> {
   const today = new Date().toISOString().split('T')[0];
   const now = new Date().toISOString();
 
-  // Calculate dynamic batch size
+  // Calculate dynamic batch size for steady-state checks
   const totalTitles = allTitles.length;
   const runsPerPeriod = (CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24) / CONFIG.CRON_INTERVAL_HOURS;
-  const titlesPerRun = Math.max(1, Math.ceil(totalTitles / runsPerPeriod));
+  const steadyStateBatchSize = Math.max(1, Math.ceil(totalTitles / runsPerPeriod));
 
-  // Get stale titles (not checked in 7 days or never checked)
+  // Prioritize never-checked titles (from bulk imports)
+  // Check up to 20 never-checked titles per run, or all if fewer
+  const neverCheckedTitles = allTitles.filter(t => !t.last_checked);
+  const neverCheckedBatchSize = Math.min(20, neverCheckedTitles.length);
+
+  // Add stale titles to fill the rest of the batch
+  const regularBatchSize = Math.max(0, steadyStateBatchSize - neverCheckedBatchSize);
+  const totalBatchSize = neverCheckedBatchSize + regularBatchSize;
+
+  // Get titles to check
   const staleTitles = await getStaleTitles(
     env.DB,
-    titlesPerRun,
+    totalBatchSize,
     CONFIG.TARGET_CHECK_FREQUENCY_DAYS
   );
 
   console.log(
-    `Queue system: Checking ${staleTitles.length} of ${totalTitles} total titles (batch size: ${titlesPerRun})`
+    `Queue system: Checking ${staleTitles.length} titles (${neverCheckedBatchSize} never-checked + ${regularBatchSize} stale) of ${totalTitles} total`
   );
 
   let checked = 0;
@@ -50,7 +59,8 @@ export async function handleScheduled(env: Env): Promise<void> {
       const availableSlugs = await getTitleAvailability(
         parseInt(title.justwatch_id, 10),
         title.type,
-        title.name
+        title.name,
+        title.full_path
       );
 
       // Log availability for each service

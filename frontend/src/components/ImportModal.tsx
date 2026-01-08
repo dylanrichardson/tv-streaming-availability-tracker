@@ -74,14 +74,59 @@ function parseIMDbCSV(lines: string[]): string[] {
   return titles;
 }
 
+const BATCH_SIZE = 50;
+
 export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SyncResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'text' | 'file'>('text');
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
   if (!isOpen) return null;
+
+  const importTitlesInBatches = async (titles: string[]) => {
+    const batches: string[][] = [];
+    for (let i = 0; i < titles.length; i += BATCH_SIZE) {
+      batches.push(titles.slice(i, i + BATCH_SIZE));
+    }
+
+    const allResults: SyncResponse['results'] = [];
+    let totalCreated = 0;
+    let totalExisting = 0;
+    let totalNotFound = 0;
+
+    for (let i = 0; i < batches.length; i++) {
+      setProgress({ current: i + 1, total: batches.length });
+
+      try {
+        const response = await fetchApi<SyncResponse>('/api/sync', {
+          method: 'POST',
+          body: { titles: batches[i] },
+        });
+
+        allResults.push(...response.results);
+
+        // Count statuses from this batch
+        response.results.forEach(r => {
+          if (r.status === 'created') totalCreated++;
+          else if (r.status === 'exists') totalExisting++;
+          else if (r.status === 'not_found') totalNotFound++;
+        });
+      } catch (err) {
+        // On error, still add partial results and stop
+        throw new Error(`Batch ${i + 1}/${batches.length} failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    }
+
+    setProgress(null);
+
+    return {
+      message: `Processed ${allResults.length} titles: ${totalCreated} created, ${totalExisting} already existed, ${totalNotFound} not found`,
+      results: allResults,
+    };
+  };
 
   const handleImport = async () => {
     const titles = input
@@ -98,10 +143,7 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
     setError(null);
 
     try {
-      const response = await fetchApi<SyncResponse>('/api/sync', {
-        method: 'POST',
-        body: { titles },
-      });
+      const response = await importTitlesInBatches(titles);
       setResult(response);
       onImported();
     } catch (err) {
@@ -128,10 +170,7 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
         return;
       }
 
-      const response = await fetchApi<SyncResponse>('/api/sync', {
-        method: 'POST',
-        body: { titles },
-      });
+      const response = await importTitlesInBatches(titles);
       setResult(response);
       onImported();
     } catch (err) {
@@ -186,6 +225,7 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
               <>
                 <p className="text-gray-400 text-sm mb-4">
                   Enter movie or TV show titles, one per line or comma-separated.
+                  Large lists will be imported in batches of {BATCH_SIZE}.
                 </p>
                 <textarea
                   className="w-full h-48 bg-gray-900 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -208,7 +248,11 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
                     onClick={handleImport}
                     disabled={loading}
                   >
-                    {loading ? 'Importing...' : 'Import'}
+                    {loading
+                      ? progress
+                        ? `Importing batch ${progress.current}/${progress.total}...`
+                        : 'Importing...'
+                      : 'Import'}
                   </button>
                 </div>
               </>
@@ -216,6 +260,7 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
               <>
                 <p className="text-gray-400 text-sm mb-4">
                   Upload a CSV file with titles (one per line) or an IMDb list export.
+                  Large lists will be imported in batches of {BATCH_SIZE}.
                 </p>
                 <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center">
                   <input
@@ -246,7 +291,11 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
                       />
                     </svg>
                     <span className="text-blue-400 hover:text-blue-300">
-                      {loading ? 'Importing...' : 'Click to upload CSV'}
+                      {loading
+                        ? progress
+                          ? `Importing batch ${progress.current}/${progress.total}...`
+                          : 'Importing...'
+                        : 'Click to upload CSV'}
                     </span>
                     <span className="text-gray-500 text-xs mt-1">
                       CSV, TXT (IMDb list export supported)

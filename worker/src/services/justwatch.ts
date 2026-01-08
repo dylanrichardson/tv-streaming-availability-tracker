@@ -12,7 +12,8 @@ const PACKAGE_MAP: Record<string, string> = {
   'dnp': 'dnp',    // Disney+
   'hbm': 'hbm',    // HBO Max
   'atp': 'atp',    // Apple TV+
-  'pck': 'pck',    // Peacock
+  'pct': 'pck',    // Peacock (regular)
+  'pcp': 'pck',    // Peacock Premium
   'pmp': 'pmp',    // Paramount+
 };
 
@@ -49,19 +50,25 @@ query GetSearchResults($country: Country!, $language: Language!, $first: Int!, $
 `;
 
 const GET_TITLE_QUERY = `
-query GetUrlTitleDetails($fullPath: String!, $country: Country!, $language: Language!, $platform: Platform! = WEB, $filterBuy: WatchNowOfferFilter!, $filterFlatrate: WatchNowOfferFilter!) {
+query GetUrlTitleDetails($fullPath: String!, $country: Country!, $language: Language!) {
   urlV2(fullPath: $fullPath) {
-    id
-    objectType
-    objectId
-    offerCount(country: $country, platform: $platform)
-    offers(country: $country, platform: $platform, filter: {preAffiliate: true}) {
-      monetizationType
-      presentationType
-      package {
+    node {
+      ... on MovieOrShowOrSeasonOrEpisode {
         id
-        packageId
-        shortName
+        objectType
+        objectId
+        content(country: $country, language: $language) {
+          title
+        }
+        offers(country: $country, platform: WEB, filter: {preAffiliate: true}) {
+          monetizationType
+          presentationType
+          package {
+            id
+            packageId
+            shortName
+          }
+        }
       }
     }
   }
@@ -116,6 +123,7 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
       id: node.objectId,
       title: node.content.title,
       object_type: node.objectType === 'SHOW' ? 'show' : 'movie',
+      fullPath: node.content.fullPath,
       poster: posterUrl,
       offers: node.offers || [],
     };
@@ -125,10 +133,57 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
   }
 }
 
-export async function getTitleAvailability(justwatchId: number, type: 'movie' | 'tv', titleName: string): Promise<string[]> {
+async function getTitleByPath(fullPath: string): Promise<any | null> {
   try {
-    // Since we don't have the fullPath stored, we need to search by name first
-    // This is less efficient but works for the daily check
+    const response = await fetch(JUSTWATCH_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'App-Version': '3.13.0-web-web',
+      },
+      body: JSON.stringify({
+        operationName: 'GetUrlTitleDetails',
+        variables: {
+          fullPath,
+          country: COUNTRY,
+          language: LANGUAGE,
+        },
+        query: GET_TITLE_QUERY,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`JustWatch getTitleByPath failed: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as any;
+
+    // Check for GraphQL errors
+    if (data.errors) {
+      console.error('JustWatch GraphQL errors:', JSON.stringify(data.errors));
+      return null;
+    }
+
+    return data?.data?.urlV2?.node || null;
+  } catch (error) {
+    console.error('JustWatch getTitleByPath error:', error);
+    return null;
+  }
+}
+
+export async function getTitleAvailability(justwatchId: number, type: 'movie' | 'tv', titleName: string, fullPath?: string | null): Promise<string[]> {
+  try {
+    // If we have fullPath, use it for accurate querying
+    if (fullPath) {
+      const titleData = await getTitleByPath(fullPath);
+      if (titleData && titleData.offers) {
+        return extractServicesFromOffers(titleData.offers);
+      }
+      console.log(`No offers found for ${titleName} using fullPath ${fullPath}`);
+    }
+
+    // Fallback: search by name (less accurate, may match wrong version)
     const searchResult = await searchTitle(titleName);
 
     if (!searchResult || !searchResult.offers) {

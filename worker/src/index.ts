@@ -3,6 +3,7 @@ import { handleSync } from './routes/sync';
 import { handleHistory } from './routes/history';
 import { handleStats, handleRecommendations } from './routes/stats';
 import { handleTitles } from './routes/titles';
+import { handleBackfill } from './routes/backfill';
 import { handleScheduled } from './scheduled';
 
 function corsHeaders(origin: string): HeadersInit {
@@ -55,6 +56,9 @@ export default {
         // Manual trigger for testing (should be protected in production)
         await handleScheduled(env);
         response = Response.json({ message: 'Availability check triggered' });
+      } else if (path === '/api/backfill-fullpath' && request.method === 'POST') {
+        // Backfill full_path for existing titles
+        response = await handleBackfill(request, env);
       } else {
         response = Response.json({ error: 'Not found' }, { status: 404 });
       }

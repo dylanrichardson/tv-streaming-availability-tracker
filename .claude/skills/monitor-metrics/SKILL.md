@@ -20,7 +20,6 @@ Analyze the application health and provide insights based on the user's request.
 
 **Quick health check:**
 ```bash
-cd worker
 npx wrangler d1 execute streamtrack --remote --command "
   SELECT
     (SELECT COUNT(*) FROM titles) as total_titles,
@@ -31,14 +30,65 @@ npx wrangler d1 execute streamtrack --remote --command "
 "
 ```
 
-**Check queue system:**
+**CRITICAL: Check import timing (avoid false positives!):**
 ```bash
-cd worker
 npx wrangler d1 execute streamtrack --remote --command "
-  SELECT name, type, last_checked FROM titles
-  ORDER BY last_checked ASC NULLS FIRST LIMIT 5
+  SELECT
+    name,
+    created_at,
+    last_checked,
+    ROUND((JULIANDAY('now') - JULIANDAY(created_at)) * 24, 1) as hours_since_import
+  FROM titles
+  WHERE last_checked IS NULL
+  ORDER BY created_at DESC
+  LIMIT 10
 "
 ```
+**Why this matters:** Titles with `last_checked=NULL` imported within the last 4 hours are NORMAL (waiting for next cron run). Only flag titles as "stuck" if they've been waiting >8 hours.
+
+**Import activity metrics:**
+```bash
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    DATE(created_at) as import_date,
+    COUNT(*) as titles_imported,
+    MIN(created_at) as first_import,
+    MAX(created_at) as last_import
+  FROM titles
+  GROUP BY DATE(created_at)
+  ORDER BY import_date DESC
+  LIMIT 7
+"
+```
+
+**Check queue system:**
+```bash
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT name, type, last_checked, created_at FROM titles
+  ORDER BY last_checked ASC NULLS FIRST LIMIT 10
+"
+```
+
+**Check titles with no streaming availability:**
+```bash
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    t.id,
+    t.name,
+    t.type,
+    t.last_checked,
+    t.full_path,
+    COUNT(DISTINCT al.service_id) as services_logged,
+    SUM(CASE WHEN al.is_available = 1 THEN 1 ELSE 0 END) as available_count
+  FROM titles t
+  LEFT JOIN availability_logs al ON t.id = al.title_id
+  WHERE t.last_checked IS NOT NULL
+  GROUP BY t.id, t.name, t.type, t.last_checked, t.full_path
+  HAVING available_count = 0
+  LIMIT 10
+"
+```
+**Note:** Titles with 0 availability are normal - many shows/movies aren't currently streaming. However, if ALL titles show 0 availability, check PACKAGE_MAP in justwatch.ts.
 
 **Service availability stats:**
 ```bash
@@ -79,8 +129,59 @@ npx wrangler d1 execute streamtrack --remote --command "
 curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles | jq -r '.titles | length'
 curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/stats/services | jq
 
+# Test import endpoint (should handle duplicates gracefully)
+curl -s -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync \
+  -H "Content-Type: application/json" \
+  -d '{"titles": ["Breaking Bad"]}' | jq
+
+# Check for API errors (test with invalid data)
+curl -s -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync \
+  -H "Content-Type: application/json" \
+  -d '{"titles": []}' | jq
+
 # Manually trigger check (for testing)
 curl -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/trigger-check
+```
+
+**Check specific title data quality:**
+```bash
+# Pick a title that should have availability data
+TITLE_ID=3  # Example: The Office
+curl -s "https://streamtrack-api.dylanrichardson1996.workers.dev/api/history/${TITLE_ID}" | jq
+
+# If history is empty but title was checked, investigate:
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT al.*, s.name FROM availability_logs al
+  JOIN services s ON al.service_id = s.id
+  WHERE al.title_id = ${TITLE_ID}
+  ORDER BY al.check_date DESC
+  LIMIT 20
+"
+```
+
+**Detect API errors and failed imports:**
+```bash
+# Check for titles that failed to get JustWatch ID (import errors)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT name, created_at, justwatch_id
+  FROM titles
+  WHERE justwatch_id IS NULL
+  ORDER BY created_at DESC
+  LIMIT 10
+"
+
+# Test error handling with invalid data
+curl -s -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync \
+  -H "Content-Type: application/json" \
+  -d '{"titles": []}' | jq
+
+# Test with non-existent title
+curl -s -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync \
+  -H "Content-Type: application/json" \
+  -d '{"titles": ["xyzabc123notarealthing"]}' | jq
+
+# Check response times (watch for slow/timeout issues)
+time curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles > /dev/null
 ```
 
 ### 3. Worker Logs
@@ -129,18 +230,24 @@ Run these queries to get overview:
 ### 2. Identify Issues
 
 Look for:
-- ❌ Titles never checked (last_checked = NULL for old titles)
+- ❌ Titles never checked (last_checked = NULL for old titles >8 hours)
 - ❌ No recent checks (no availability_logs in 8+ hours)
-- ❌ API errors or slow responses
+- ❌ API errors (500 errors, timeouts, failed imports)
+- ❌ Import failures (titles with NULL justwatch_id or full_path)
+- ❌ Slow/timeout responses (imports taking >30s)
 - ⚠️ Uneven check distribution
-- ⚠️ Missing JustWatch IDs
+- ⚠️ PACKAGE_MAP issues (ALL titles showing 0 availability)
 
 ### 3. Diagnose Root Cause
 
 Common issues:
 - **Cron not running:** Check last check_date in availability_logs
 - **Rate limiting:** Look for 429 errors or failed checks
-- **Missing data:** Verify titles have justwatch_id
+- **Import errors:** Titles with NULL justwatch_id/full_path or 500 responses
+- **Large import timeouts:** >50 titles per request hitting worker timeout
+- **PACKAGE_MAP outdated:** JustWatch changed shortNames (e.g., pct/pcp for Peacock vs old pck)
+- **Wrong title matched:** Ambiguous title names (e.g., "The Office" matched UK version instead of US version)
+- **Missing data:** Verify titles have justwatch_id and full_path
 - **Database issues:** Check log entry count (>10M = concern)
 
 ### 4. Provide Fixes

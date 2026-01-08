@@ -6,6 +6,7 @@ export interface Title {
   justwatch_id: string | null;
   poster_url: string | null;
   created_at: string;
+  last_checked: string | null;
   currentServices?: string[];
 }
 

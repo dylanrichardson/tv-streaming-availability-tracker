@@ -59,10 +59,22 @@ export function TitleTimeline({ title }: TitleTimelineProps) {
   }
 
   if (!history || history.history.length === 0) {
+    const lastCheckedDate = history?.title.last_checked
+      ? new Date(history.title.last_checked).toLocaleDateString()
+      : null;
+
     return (
       <div className="bg-gray-800 rounded-lg p-6 text-center">
         <h3 className="text-lg font-medium mb-2">{title.name}</h3>
-        <p className="text-gray-500">No availability history yet. Data will appear after the daily check runs.</p>
+        {lastCheckedDate ? (
+          <p className="text-gray-500">
+            Checked on {lastCheckedDate}. Not currently available on any tracked streaming services.
+          </p>
+        ) : (
+          <p className="text-gray-500">
+            No availability history yet. Data will appear after the daily check runs.
+          </p>
+        )}
       </div>
     );
   }

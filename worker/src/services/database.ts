@@ -39,11 +39,12 @@ export async function createTitle(
   name: string,
   type: 'movie' | 'tv',
   justwatchId: string | null,
+  fullPath: string | null,
   posterUrl: string | null
 ): Promise<Title> {
   const result = await db
-    .prepare('INSERT INTO titles (name, type, justwatch_id, poster_url) VALUES (?, ?, ?, ?) RETURNING *')
-    .bind(name, type, justwatchId, posterUrl)
+    .prepare('INSERT INTO titles (name, type, justwatch_id, full_path, poster_url) VALUES (?, ?, ?, ?, ?) RETURNING *')
+    .bind(name, type, justwatchId, fullPath, posterUrl)
     .first<Title>();
   return result!;
 }

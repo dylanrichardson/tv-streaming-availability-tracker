@@ -9,8 +9,10 @@ export interface Title {
   type: 'movie' | 'tv';
   external_id: string | null;
   justwatch_id: string | null;
+  full_path: string | null;
   poster_url: string | null;
   created_at: string;
+  last_checked: string | null;
 }
 
 export interface Service {
@@ -32,6 +34,7 @@ export interface JustWatchSearchResult {
   id: number;
   title: string;
   object_type: 'movie' | 'show';
+  fullPath?: string;
   poster?: string;
   offers?: JustWatchOffer[];
 }
