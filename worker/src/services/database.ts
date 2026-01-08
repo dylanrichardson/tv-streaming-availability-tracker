@@ -135,6 +135,18 @@ export async function getTitleHistory(db: D1Database, titleId: number): Promise<
     return null;
   }
 
+  // Get all unique check dates for this title
+  const dates = await db
+    .prepare(`
+      SELECT DISTINCT check_date
+      FROM availability_logs
+      WHERE title_id = ?
+      ORDER BY check_date DESC
+    `)
+    .bind(titleId)
+    .all<{ check_date: string }>();
+
+  // Get all available services for each date
   const logs = await db
     .prepare(`
       SELECT al.check_date, s.name as service_name
@@ -146,17 +158,18 @@ export async function getTitleHistory(db: D1Database, titleId: number): Promise<
     .bind(titleId)
     .all<{ check_date: string; service_name: string }>();
 
-  // Group by date
-  const historyMap = new Map<string, string[]>();
+  // Group services by date
+  const servicesMap = new Map<string, string[]>();
   for (const log of logs.results || []) {
-    const existing = historyMap.get(log.check_date) || [];
+    const existing = servicesMap.get(log.check_date) || [];
     existing.push(log.service_name);
-    historyMap.set(log.check_date, existing);
+    servicesMap.set(log.check_date, existing);
   }
 
-  const history = Array.from(historyMap.entries()).map(([date, services]) => ({
-    date,
-    services,
+  // Build history with all dates (including those with no availability)
+  const history = (dates.results || []).map(({ check_date }) => ({
+    date: check_date,
+    services: servicesMap.get(check_date) || [],
   }));
 
   return { title, history };
