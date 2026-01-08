@@ -102,7 +102,7 @@ export function Watchlist() {
               selectedId={selectedTitle?.id}
             />
           </div>
-          <div>
+          <div className="lg:sticky lg:top-6 lg:self-start">
             {selectedTitle ? (
               <TitleTimeline title={selectedTitle} />
             ) : (
