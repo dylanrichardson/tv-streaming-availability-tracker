@@ -31,6 +31,24 @@ CREATE INDEX IF NOT EXISTS idx_availability_title ON availability_logs(title_id)
 CREATE INDEX IF NOT EXISTS idx_availability_date ON availability_logs(check_date);
 CREATE INDEX IF NOT EXISTS idx_availability_service ON availability_logs(service_id);
 
+-- Error logs table for detailed error storage (last 30 days)
+CREATE TABLE IF NOT EXISTS error_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message TEXT NOT NULL,
+  stack TEXT,
+  type TEXT CHECK(type IN ('api', 'runtime', 'render', 'network')) NOT NULL,
+  url TEXT NOT NULL,
+  user_agent TEXT NOT NULL,
+  timestamp DATETIME NOT NULL,
+  component TEXT,
+  metadata TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_error_logs_timestamp ON error_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_error_logs_type ON error_logs(type);
+CREATE INDEX IF NOT EXISTS idx_error_logs_message ON error_logs(message);
+
 -- Seed common streaming services
 INSERT OR IGNORE INTO services (name, slug) VALUES
   ('Netflix', 'nfx'),

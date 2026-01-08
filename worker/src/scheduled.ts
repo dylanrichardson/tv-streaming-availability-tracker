@@ -96,4 +96,22 @@ export async function handleScheduled(env: Env): Promise<void> {
   console.log(
     `Next run will check titles not updated since: ${new Date(Date.now() - CONFIG.TARGET_CHECK_FREQUENCY_DAYS * 24 * 60 * 60 * 1000).toISOString()}`
   );
+
+  // Run error log cleanup once per day at 3 AM UTC
+  const currentHour = new Date().getUTCHours();
+  if (currentHour === 3) {
+    try {
+      const result = await env.DB.prepare(`
+        DELETE FROM error_logs
+        WHERE timestamp < datetime('now', '-30 days')
+      `).run();
+
+      const deleted = result.meta?.changes || 0;
+      if (deleted > 0) {
+        console.log(`Cleaned up ${deleted} old error logs (>30 days)`);
+      }
+    } catch (error) {
+      console.error('Error during error log cleanup:', error);
+    }
+  }
 }

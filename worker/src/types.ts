@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   CORS_ORIGIN: string;
+  ERROR_ANALYTICS?: AnalyticsEngineDataset;
 }
 
 export interface Title {

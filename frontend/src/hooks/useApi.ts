@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { API_URL } from '../config';
+import { logError } from '../services/errorTracking';
 
 const API_BASE = API_URL;
 
@@ -28,7 +29,16 @@ export function useApi<T>() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error ${response.status}`);
+        const error = new Error(errorData.error || `HTTP error ${response.status}`);
+
+        // Log API error
+        logError(error, 'api', {
+          endpoint,
+          method: options.method || 'GET',
+          status: response.status,
+        });
+
+        throw error;
       }
 
       const result = await response.json() as T;
@@ -37,6 +47,15 @@ export function useApi<T>() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
+
+      // Log API error (if not already logged above)
+      if (err instanceof Error && !err.message.includes('HTTP error')) {
+        logError(err, 'api', {
+          endpoint,
+          method: options.method || 'GET',
+        });
+      }
+
       throw err;
     } finally {
       setLoading(false);
@@ -47,18 +66,38 @@ export function useApi<T>() {
 }
 
 export async function fetchApi<T>(endpoint: string, options: UseApiOptions = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(errorData.error || `HTTP error ${response.status}`);
+
+      // Log API error
+      logError(error, 'api', {
+        endpoint,
+        method: options.method || 'GET',
+        status: response.status,
+      });
+
+      throw error;
+    }
+
+    return response.json() as Promise<T>;
+  } catch (err) {
+    // Log network errors (if not already logged above)
+    if (err instanceof Error && !err.message.includes('HTTP error')) {
+      logError(err, 'network', {
+        endpoint,
+        method: options.method || 'GET',
+      });
+    }
+    throw err;
   }
-
-  return response.json() as Promise<T>;
 }

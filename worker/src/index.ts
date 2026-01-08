@@ -5,6 +5,8 @@ import { handleStats, handleRecommendations } from './routes/stats';
 import { handleTitles } from './routes/titles';
 import { handleBackfill } from './routes/backfill';
 import { handleScheduled } from './scheduled';
+import { handleLogError } from './routes/logError';
+import { handleGetErrors, handleGetErrorStats } from './routes/errors';
 
 function corsHeaders(origin: string): HeadersInit {
   return {
@@ -59,6 +61,12 @@ export default {
       } else if (path === '/api/backfill-fullpath' && request.method === 'POST') {
         // Backfill full_path for existing titles
         response = await handleBackfill(request, env);
+      } else if (path === '/api/log-error' && request.method === 'POST') {
+        response = await handleLogError(request, env);
+      } else if (path === '/api/errors' && request.method === 'GET') {
+        response = await handleGetErrors(request, env);
+      } else if (path === '/api/errors/stats' && request.method === 'GET') {
+        response = await handleGetErrorStats(env);
       } else {
         response = Response.json({ error: 'Not found' }, { status: 404 });
       }

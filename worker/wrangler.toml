@@ -7,6 +7,12 @@ binding = "DB"
 database_name = "streamtrack"
 database_id = "e36fd369-7ba0-4b46-9ed6-08f67279d8a2"
 
+# Analytics Engine - Enable in Cloudflare dashboard first:
+# https://dash.cloudflare.com/54b03767ee6e2e0ed161d956fd0a83c5/workers/analytics-engine
+# [[analytics_engine_datasets]]
+# binding = "ERROR_ANALYTICS"
+# dataset = "streamtrack_errors"
+
 [triggers]
 crons = ["*/15 * * * *"]  # Every 15 minutes - see CRON_INTERVAL_MINUTES in scheduled.ts
 

@@ -49,13 +49,25 @@ if (titles.length === 0) {
 console.log(`\n📊 Found ${titles.length} titles and ${services.length} services`);
 console.log('🎲 Generating fake historical data...\n');
 
-// Generate dates for the past 60 days
+// Generate dates for the past 2 years (730 days) with some tracking gaps
 const today = new Date();
 const dates: string[] = [];
-for (let i = 60; i >= 0; i--) {
+for (let i = 730; i >= 0; i--) {
   const date = new Date(today);
   date.setDate(date.getDate() - i);
-  dates.push(date.toISOString().split('T')[0]);
+
+  // Simulate tracking gaps:
+  // - Gap 1: Skip 2 weeks around day 200 (system outage)
+  // - Gap 2: Skip 1 week around day 400 (maintenance window)
+  // - Gap 3: Skip 3 days around day 600 (brief failure)
+  const isInGap =
+    (i >= 200 && i < 214) ||  // 14 day gap
+    (i >= 400 && i < 407) ||  // 7 day gap
+    (i >= 600 && i < 603);    // 3 day gap
+
+  if (!isInGap) {
+    dates.push(date.toISOString().split('T')[0]);
+  }
 }
 
 // Service availability patterns
@@ -77,6 +89,18 @@ const patterns = {
 
   // Recently added (last 2 weeks)
   recentlyAdded: (dayIndex: number) => dayIndex >= dates.length - 14,
+
+  // Spotty coverage with large gaps (available 3 months, gone 2 months, repeat)
+  spottyWithGaps: (dayIndex: number) => Math.floor(dayIndex / 90) % 5 < 3,
+
+  // Seasonal availability (Q1 and Q3 only - simulates licensed content rotation)
+  seasonal: (dayIndex: number) => {
+    const month = new Date(dates[dayIndex]).getMonth();
+    return month < 3 || (month >= 6 && month < 9);
+  },
+
+  // Rare availability (only available 1 week every 12 weeks)
+  rare: (dayIndex: number) => Math.floor(dayIndex / 7) % 12 === 0,
 };
 
 // Assign patterns to titles
@@ -85,10 +109,13 @@ const titlePatterns = new Map<number, Map<number, (dayIndex: number) => boolean>
 titles.forEach((title, titleIndex) => {
   const servicePatternMap = new Map<number, (dayIndex: number) => boolean>();
 
-  // Most titles not available
-  const availableServiceCount = Math.random() < 0.3 ? 1 : Math.random() < 0.6 ? 2 : 0;
+  // 30% chance title is never available on any service
+  const isNeverAvailable = Math.random() < 0.3;
 
-  if (availableServiceCount > 0) {
+  if (!isNeverAvailable) {
+    // Determine how many services have this title
+    const availableServiceCount = Math.random() < 0.4 ? 1 : Math.random() < 0.7 ? 2 : 3;
+
     // Pick random services to be available
     const shuffledServices = [...services].sort(() => Math.random() - 0.5);
     const selectedServices = shuffledServices.slice(0, availableServiceCount);
@@ -100,11 +127,11 @@ titles.forEach((title, titleIndex) => {
 
       if (idx === 0) {
         // First service - more likely to be consistently available
-        const choices: (keyof typeof patterns)[] = ['alwaysAvailable', 'removedMidway', 'addedMidway'];
+        const choices: (keyof typeof patterns)[] = ['alwaysAvailable', 'removedMidway', 'addedMidway', 'spottyWithGaps', 'seasonal'];
         patternName = choices[Math.floor(Math.random() * choices.length)];
       } else {
-        // Second service - might be intermittent
-        const choices: (keyof typeof patterns)[] = ['alwaysAvailable', 'intermittent', 'recentlyAdded'];
+        // Additional services - might be intermittent
+        const choices: (keyof typeof patterns)[] = ['alwaysAvailable', 'intermittent', 'recentlyAdded', 'removedMidway', 'spottyWithGaps', 'seasonal', 'rare'];
         patternName = choices[Math.floor(Math.random() * choices.length)];
       }
 
@@ -152,6 +179,7 @@ db.prepare('UPDATE titles SET last_checked = ?').run(lastCheckDate);
 
 console.log(`\n✅ Generated ${insertCount} availability log entries across ${dates.length} days`);
 console.log(`📅 Date range: ${dates[0]} to ${dates[dates.length - 1]}`);
+console.log(`⚠️  Simulated tracking gaps: 2 weeks (day 200), 1 week (day 400), 3 days (day 600)`);
 console.log(`\n💡 Run "npx wrangler dev" and open the app to see the historical data!`);
 
 db.close();
