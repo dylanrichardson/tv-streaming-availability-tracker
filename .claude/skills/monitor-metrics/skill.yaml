@@ -1,3 +1,0 @@
-name: monitor-metrics
-description: Review metrics, errors, logs, and database health for TV Streaming Availability Tracker. Provides observability, triage, debugging, and fixes.
-version: 1.0.0

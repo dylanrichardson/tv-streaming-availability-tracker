@@ -6,29 +6,29 @@ A Claude skill for reviewing metrics, errors, triage, debugging, and fixes.
 
 ### Usage
 
-The skill is defined in `.claude/skills/monitor-metrics/` and can be invoked by asking Claude to act as the monitoring agent.
+The skill is defined in `.claude/skills/monitor-metrics/SKILL.md` and can be invoked with:
 
 **General health check:**
 ```
-Claude, please review the app health using the monitor-metrics skill
+/monitor-metrics
 ```
 
 **Specific question:**
 ```
-Claude, use the monitor-metrics skill to answer: "Why aren't titles being checked?"
+/monitor-metrics "Why aren't titles being checked?"
 ```
 
 **Custom timeframe:**
 ```
-Claude, run monitor-metrics for the last 7 days
+/monitor-metrics timeframe="7 days"
 ```
 
 **With specific task:**
 ```
-Claude, check queue system performance using monitor-metrics (last 48 hours)
+/monitor-metrics "Check queue system performance"
 ```
 
-**Note:** The skill provides a structured prompt for Claude to follow, ensuring comprehensive analysis of logs, database metrics, API health, and common issues.
+**Note:** The skill provides a structured framework for comprehensive analysis of logs, database metrics, API health, and common issues. It will automatically run the appropriate database queries and provide actionable insights.
 
 ### What It Does
 
