@@ -184,16 +184,124 @@ curl -s -X POST https://streamtrack-api.dylanrichardson1996.workers.dev/api/sync
 time curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/titles > /dev/null
 ```
 
-### 3. Worker Logs
+### 3. Frontend Error Tracking
+
+**Error log overview (API):**
+```bash
+# Get recent errors
+curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/errors | jq
+
+# Filter by error type
+curl -s "https://streamtrack-api.dylanrichardson1996.workers.dev/api/errors?type=api&limit=20" | jq
+
+# Get error statistics
+curl -s https://streamtrack-api.dylanrichardson1996.workers.dev/api/errors/stats | jq
+```
+
+**Error log queries (D1):**
+```bash
+# Recent errors (last 24h)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    type,
+    message,
+    url,
+    timestamp,
+    user_agent
+  FROM error_logs
+  WHERE timestamp > datetime('now', '-24 hours')
+  ORDER BY timestamp DESC
+  LIMIT 20
+"
+
+# Error counts by type (last 24h)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    type,
+    COUNT(*) as count,
+    COUNT(DISTINCT message) as unique_messages
+  FROM error_logs
+  WHERE timestamp > datetime('now', '-24 hours')
+  GROUP BY type
+  ORDER BY count DESC
+"
+
+# Most frequent errors (last 7 days)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    message,
+    type,
+    COUNT(*) as occurrences,
+    MAX(timestamp) as last_seen,
+    MIN(timestamp) as first_seen
+  FROM error_logs
+  WHERE timestamp > datetime('now', '-7 days')
+  GROUP BY message, type
+  ORDER BY occurrences DESC
+  LIMIT 10
+"
+
+# Errors by URL (identify problematic pages)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    url,
+    COUNT(*) as error_count,
+    COUNT(DISTINCT type) as error_types
+  FROM error_logs
+  WHERE timestamp > datetime('now', '-24 hours')
+  GROUP BY url
+  ORDER BY error_count DESC
+  LIMIT 5
+"
+
+# Check for error spikes (hourly breakdown)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT
+    strftime('%Y-%m-%d %H:00', timestamp) as hour,
+    type,
+    COUNT(*) as count
+  FROM error_logs
+  WHERE timestamp > datetime('now', '-24 hours')
+  GROUP BY hour, type
+  ORDER BY hour DESC, count DESC
+"
+
+# View full error details (with stack trace)
+npx wrangler d1 execute streamtrack --remote --command "
+  SELECT * FROM error_logs
+  WHERE timestamp > datetime('now', '-1 hour')
+  ORDER BY timestamp DESC
+  LIMIT 5
+"
+```
+
+**Error Types:**
+- `api` - Failed HTTP requests, 4xx/5xx responses
+- `network` - Connection failures, timeouts
+- `runtime` - Uncaught JavaScript exceptions
+- `render` - React component crashes
+
+**Normal vs Concerning:**
+- ✅ Normal: Occasional `api` errors (user on bad network), rare `network` timeouts
+- ⚠️ Warning: Repeated errors from same page/component, >10 errors/hour
+- 🔴 Critical: Error spikes (>50/hour), `render` errors (app broken for users), all users hitting same error
+
+**Interpreting Errors:**
+- **High `api` errors**: Check worker health, CORS config, or JustWatch API issues
+- **`render` errors**: Component bug - check message/stack for which component crashed
+- **`network` errors**: May indicate user connectivity issues (normal) or CORS problems
+- **`runtime` errors**: JavaScript bugs in browser code - check stack trace
+
+### 4. Worker Logs
 
 ```bash
 cd worker
 npx wrangler tail --format pretty
 ```
 
-**Note:** Shows real-time logs only. For historical data, use database queries.
+**Note:** Shows real-time logs only. For historical data, use database queries or error logs.
 
-### 4. Deployments
+### 5. Deployments
 
 ```bash
 cd worker
@@ -226,6 +334,7 @@ Run these queries to get overview:
 1. Database health (total titles, check status, log count)
 2. API endpoint test
 3. Recent check activity
+4. Frontend error overview (error counts by type in last 24h)
 
 ### 2. Identify Issues
 
@@ -235,8 +344,11 @@ Look for:
 - ❌ API errors (500 errors, timeouts, failed imports)
 - ❌ Import failures (titles with NULL justwatch_id or full_path)
 - ❌ Slow/timeout responses (imports taking >30s)
+- ❌ Frontend error spikes (>50 errors/hour in error_logs)
+- ❌ Render errors (React component crashes breaking the UI)
 - ⚠️ Uneven check distribution
 - ⚠️ PACKAGE_MAP issues (ALL titles showing 0 availability)
+- ⚠️ Repeated frontend errors (same error >10 times/hour)
 
 ### 3. Diagnose Root Cause
 
@@ -282,6 +394,12 @@ For each issue found, provide:
 - Endpoints: [✅ All responding / ⚠️ Some slow / 🔴 Down]
 - Response time: Xms
 - Errors: [None / Details]
+
+### 🐛 Frontend Errors (Last 24h)
+- Total errors: X
+- By type: X api, X runtime, X network, X render
+- Status: [✅ Normal / ⚠️ Elevated / 🔴 Critical]
+- Top error: [message] (X occurrences)
 
 ### 🚨 Issues Found
 [None / List with severity]
@@ -336,11 +454,21 @@ Details:
 
 ### Scenario 4: "Any errors?"
 
-1. Check for titles with NULL justwatch_id
-2. Look at API response times
-3. Check for duplicate titles
-4. Verify cron schedule
-5. Report any anomalies
+1. Check frontend error logs (last 24h)
+2. Check for titles with NULL justwatch_id
+3. Look at API response times
+4. Check for duplicate titles
+5. Verify cron schedule
+6. Report any anomalies
+
+### Scenario 5: "Are users experiencing frontend issues?"
+
+1. Query error_logs for last 24h
+2. Check error counts by type
+3. Look for error spikes (hourly breakdown)
+4. Identify most frequent errors
+5. Check if errors correlate with specific pages/components
+6. Determine severity (normal vs concerning)
 
 ## Important Notes
 
