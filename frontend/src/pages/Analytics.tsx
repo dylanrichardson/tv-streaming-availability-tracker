@@ -3,6 +3,8 @@ import type { StatsResponse } from '../types';
 import { fetchApi } from '../hooks/useApi';
 import { ServiceChart } from '../components/ServiceChart';
 import { BuyRecommendations } from '../components/BuyRecommendations';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { ErrorDisplay } from '../components/common/ErrorDisplay';
 
 export function Analytics() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -17,19 +19,11 @@ export function Analytics() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (error) {
-    return (
-      <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
-        <p className="text-red-400">{error}</p>
-      </div>
-    );
+    return <ErrorDisplay error={error} />;
   }
 
   return (

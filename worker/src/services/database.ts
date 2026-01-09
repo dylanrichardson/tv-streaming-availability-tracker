@@ -1,17 +1,5 @@
 import type { Env, Title, Service, HistoryResponse, StatsResponse } from '../types';
-
-// Fix poster URL formatting for titles from database
-function fixPosterUrl(posterUrl: string | null): string | null {
-  if (!posterUrl) return null;
-
-  // Already formatted correctly
-  if (posterUrl.startsWith('https://')) return posterUrl;
-
-  // Fix template format
-  return `https://images.justwatch.com${posterUrl}`
-    .replace('{profile}', 's332')
-    .replace('{format}', 'webp');
-}
+import { formatPosterUrl } from '../utils/poster';
 
 export async function getAllTitles(db: D1Database): Promise<Title[]> {
   const result = await db.prepare('SELECT * FROM titles ORDER BY name').all<Title>();
@@ -20,7 +8,7 @@ export async function getAllTitles(db: D1Database): Promise<Title[]> {
   // Fix poster URLs on read
   return titles.map(title => ({
     ...title,
-    poster_url: fixPosterUrl(title.poster_url)
+    poster_url: formatPosterUrl(title.poster_url)
   }));
 }
 
@@ -30,7 +18,7 @@ export async function getTitleById(db: D1Database, id: number): Promise<Title | 
 
   return {
     ...result,
-    poster_url: fixPosterUrl(result.poster_url)
+    poster_url: formatPosterUrl(result.poster_url)
   };
 }
 
@@ -58,7 +46,7 @@ export async function findTitleByName(db: D1Database, name: string): Promise<Tit
 
   return {
     ...result,
-    poster_url: fixPosterUrl(result.poster_url)
+    poster_url: formatPosterUrl(result.poster_url)
   };
 }
 
@@ -71,7 +59,7 @@ export async function findTitleByJustWatchId(db: D1Database, justwatchId: string
 
   return {
     ...result,
-    poster_url: fixPosterUrl(result.poster_url)
+    poster_url: formatPosterUrl(result.poster_url)
   };
 }
 
@@ -110,7 +98,7 @@ export async function getStaleTitles(db: D1Database, limit: number, daysStale: n
   // Fix poster URLs on read
   return titles.map(title => ({
     ...title,
-    poster_url: fixPosterUrl(title.poster_url)
+    poster_url: formatPosterUrl(title.poster_url)
   }));
 }
 
@@ -233,7 +221,7 @@ export async function getTitlesCount(db: D1Database): Promise<number> {
 export async function getTitlesWithCurrentAvailability(db: D1Database, limit?: number, offset?: number): Promise<(Title & { currentServices: string[] })[]> {
   // Build query with optional pagination
   let query = 'SELECT * FROM titles ORDER BY name';
-  const params: any[] = [];
+  const params: (string | number)[] = [];
 
   if (limit !== undefined && offset !== undefined) {
     query += ' LIMIT ? OFFSET ?';
@@ -243,7 +231,7 @@ export async function getTitlesWithCurrentAvailability(db: D1Database, limit?: n
   const result = await db.prepare(query).bind(...params).all<Title>();
   const titles = (result.results || []).map(title => ({
     ...title,
-    poster_url: fixPosterUrl(title.poster_url)
+    poster_url: formatPosterUrl(title.poster_url)
   }));
 
   // Get latest availability for each title

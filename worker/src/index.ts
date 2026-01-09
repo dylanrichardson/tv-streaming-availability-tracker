@@ -19,11 +19,36 @@ function corsHeaders(origin: string): HeadersInit {
   };
 }
 
-function withCors(response: Response, origin: string): Response {
+function securityHeaders(): HeadersInit {
+  return {
+    // Content Security Policy - restrict resource loading
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://apis.justwatch.com",
+    // Prevent MIME type sniffing
+    'X-Content-Type-Options': 'nosniff',
+    // Prevent clickjacking attacks
+    'X-Frame-Options': 'DENY',
+    // Referrer policy for privacy
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    // Disable client-side caching of sensitive data
+    'Cache-Control': 'no-store, max-age=0',
+    // Modern browsers: XSS protection
+    'X-XSS-Protection': '1; mode=block',
+  };
+}
+
+function withCorsAndSecurity(response: Response, origin: string): Response {
   const headers = new Headers(response.headers);
+
+  // Add CORS headers
   for (const [key, value] of Object.entries(corsHeaders(origin))) {
     headers.set(key, value);
   }
+
+  // Add security headers
+  for (const [key, value] of Object.entries(securityHeaders())) {
+    headers.set(key, value);
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -39,7 +64,10 @@ export default {
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(corsOrigin) });
+      return new Response(null, {
+        status: 204,
+        headers: { ...corsHeaders(corsOrigin), ...securityHeaders() }
+      });
     }
 
     let response: Response;
@@ -56,7 +84,11 @@ export default {
         response = await handleTitles(request, env);
       } else if (path.startsWith('/api/history/') && request.method === 'GET') {
         const titleId = path.split('/api/history/')[1];
-        response = await handleHistory(titleId, env);
+        if (!titleId) {
+          response = Response.json({ error: 'Missing title ID' }, { status: 400 });
+        } else {
+          response = await handleHistory(titleId, env);
+        }
       } else if (path === '/api/stats/services' && request.method === 'GET') {
         response = await handleStats(env);
       } else if (path === '/api/recommendations' && request.method === 'GET') {
@@ -84,7 +116,7 @@ export default {
       response = Response.json({ error: 'Internal server error' }, { status: 500 });
     }
 
-    return withCors(response, corsOrigin);
+    return withCorsAndSecurity(response, corsOrigin);
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {

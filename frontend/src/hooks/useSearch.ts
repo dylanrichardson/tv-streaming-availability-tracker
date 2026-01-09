@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { SearchResult, SearchResponse } from '../types';
 import { fetchApi } from './useApi';
+import { validateSearchQuery } from '../utils/validation';
 
 export function useSearch() {
   const [query, setQuery] = useState('');
@@ -13,6 +14,14 @@ export function useSearch() {
     if (query.length < 2) {
       setResults([]);
       setError(null);
+      return;
+    }
+
+    // Validate query before sending
+    const validation = validateSearchQuery(query);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid search query');
+      setResults([]);
       return;
     }
 

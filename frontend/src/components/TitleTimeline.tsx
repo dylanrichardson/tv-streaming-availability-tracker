@@ -1,26 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Title, HistoryResponse } from '../types';
 import { fetchApi } from '../hooks/useApi';
+import { SERVICE_COLORS, DEFAULT_SERVICE_COLOR } from '../constants/services';
+import { LoadingSpinner } from './common/LoadingSpinner';
+import { ErrorDisplay } from './common/ErrorDisplay';
 
 interface TitleTimelineProps {
   title: Title;
 }
 
 type Granularity = 'month' | 'year';
-
-const SERVICE_COLORS: Record<string, string> = {
-  Netflix: '#e50914',
-  'Amazon Prime Video': '#00a8e1',
-  Hulu: '#1ce783',
-  'Disney+': '#113ccf',
-  'HBO Max': '#b385f2',
-  'Apple TV+': '#555555',
-  Peacock: '#ffc107',
-  'Paramount+': '#0064ff',
-};
-
-// Fallback color for services not in our predefined list
-const DEFAULT_SERVICE_COLOR = '#64748b';
 
 export function TitleTimeline({ title }: TitleTimelineProps) {
   const [history, setHistory] = useState<HistoryResponse | null>(null);
@@ -103,19 +92,11 @@ export function TitleTimeline({ title }: TitleTimelineProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (error) {
-    return (
-      <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
-        <p className="text-red-400">{error}</p>
-      </div>
-    );
+    return <ErrorDisplay error={error} />;
   }
 
   // If no history but has been checked, show single-date timeline with empty bars

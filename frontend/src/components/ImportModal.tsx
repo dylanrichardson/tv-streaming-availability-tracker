@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PreviewResponse, PreviewResultItem, ConfirmSelection, ConfirmResultItem } from '../types';
 import { fetchApi } from '../hooks/useApi';
 import { DisambiguationModal } from './DisambiguationModal';
+import { validateTitleInput } from '../utils/validation';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -150,15 +151,15 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   };
 
   const handleImport = async () => {
-    const titles = input
-      .split(/[\n,]/)
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+    // Validate and sanitize input
+    const validation = validateTitleInput(input);
 
-    if (titles.length === 0) {
-      setError('Please enter at least one title');
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid input');
       return;
     }
+
+    const titles = validation.sanitizedTitles!;
 
     setLoading(true);
     setError(null);

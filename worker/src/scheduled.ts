@@ -1,5 +1,5 @@
 import type { Env } from './types';
-import { getAllTitles, getStaleTitles, getAllServices, getServiceBySlug, logAvailability, updateLastChecked } from './services/database';
+import { getAllTitles, getStaleTitles, getAllServices, logAvailability, updateLastChecked } from './services/database';
 import { getTitleAvailability } from './services/justwatch';
 
 // Configuration
@@ -16,7 +16,7 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   const allTitles = await getAllTitles(env.DB);
   const services = await getAllServices(env.DB);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]!; // ISO date always has 'T'
   const now = new Date().toISOString();
 
   // Calculate dynamic batch size for steady-state checks
