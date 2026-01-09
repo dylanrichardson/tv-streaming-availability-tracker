@@ -1,22 +1,12 @@
 import { useState } from 'react';
 import type { Title } from '../types';
+import { SERVICE_BADGE_CLASSES, DEFAULT_BADGE_CLASS } from '../constants/services';
 
 interface TitleListProps {
   titles: (Title & { currentServices: string[] })[];
   onSelectTitle: (title: Title) => void;
   selectedId?: number;
 }
-
-const SERVICE_COLORS: Record<string, string> = {
-  Netflix: 'bg-red-600',
-  'Amazon Prime Video': 'bg-blue-500',
-  Hulu: 'bg-green-500',
-  'Disney+': 'bg-blue-700',
-  'HBO Max': 'bg-purple-600',
-  'Apple TV+': 'bg-gray-600',
-  Peacock: 'bg-yellow-500',
-  'Paramount+': 'bg-blue-800',
-};
 
 export function TitleList({ titles, onSelectTitle, selectedId }: TitleListProps) {
   const [search, setSearch] = useState('');
@@ -84,7 +74,7 @@ export function TitleList({ titles, onSelectTitle, selectedId }: TitleListProps)
                         <span
                           key={service}
                           className={`text-xs px-2 py-0.5 rounded text-white ${
-                            SERVICE_COLORS[service] || 'bg-gray-600'
+                            SERVICE_BADGE_CLASSES[service] || DEFAULT_BADGE_CLASS
                           }`}
                         >
                           {service}

@@ -1,27 +1,15 @@
-import type { Env, PreviewRequest, PreviewResponse, PreviewResultItem } from '../types';
+import type { Env, PreviewResponse, PreviewResultItem } from '../types';
 import { findTitleByName, findTitleByJustWatchId } from '../services/database';
 import { searchTitles } from '../services/justwatch';
-
-// Import limits from SPAM-PREVENTION.md
-const MAX_TITLES_PER_REQUEST = 50;
+import { buildErrorResponse } from '../utils/errors';
+import { validateRequest, PreviewRequestSchema } from '../validation/schemas';
+import { ZodError } from 'zod';
 
 export async function handleSyncPreview(request: Request, env: Env): Promise<Response> {
   try {
-    const body = await request.json() as PreviewRequest;
+    // Validate and parse request body
+    const body = await validateRequest(request, PreviewRequestSchema);
     const titleNames = body.titles;
-
-    if (!Array.isArray(titleNames) || titleNames.length === 0) {
-      return Response.json({ error: 'titles array is required' }, { status: 400 });
-    }
-
-    // Check per-request limit
-    if (titleNames.length > MAX_TITLES_PER_REQUEST) {
-      return Response.json({
-        error: `Maximum ${MAX_TITLES_PER_REQUEST} titles per import request`,
-        received: titleNames.length,
-        limit: MAX_TITLES_PER_REQUEST
-      }, { status: 400 });
-    }
 
     const results: PreviewResultItem[] = [];
 
@@ -65,11 +53,15 @@ export async function handleSyncPreview(request: Request, env: Env): Promise<Res
       // Determine status based on number of unique matches
       if (uniqueMatches.length === 0) {
         // All matches already exist
+        const firstMatch = matches[0];
+        const existingTitle = firstMatch
+          ? await findTitleByJustWatchId(env.DB, firstMatch.id.toString()) || undefined
+          : undefined;
         results.push({
           query: trimmedName,
           status: 'exists',
           matches: matches,
-          existingTitle: await findTitleByJustWatchId(env.DB, matches[0].id.toString()) || undefined
+          existingTitle
         });
       } else if (uniqueMatches.length === 1) {
         results.push({
@@ -88,15 +80,14 @@ export async function handleSyncPreview(request: Request, env: Env): Promise<Res
 
     return Response.json({ results } as PreviewResponse);
   } catch (error) {
-    console.error('Sync preview error:', error);
-
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = {
-      error: 'Failed to preview titles',
-      details: errorMessage,
-      timestamp: new Date().toISOString()
-    };
-
-    return Response.json(errorDetails, { status: 500 });
+    // Handle validation errors with detailed messages
+    if (error instanceof ZodError) {
+      return Response.json({
+        error: 'Invalid request data',
+        details: error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+        timestamp: new Date().toISOString()
+      }, { status: 400 });
+    }
+    return buildErrorResponse(error, 'Failed to preview titles');
   }
 }

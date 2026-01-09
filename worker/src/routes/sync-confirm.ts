@@ -1,28 +1,16 @@
-import type { Env, ConfirmRequest, ConfirmResultItem, Title } from '../types';
-import { createTitle, findTitleByJustWatchId, getAllServices, logAvailability } from '../services/database';
-import { extractServicesFromOffers } from '../services/justwatch';
-
-// Import limits from SPAM-PREVENTION.md
-const MAX_TOTAL_TITLES = 5000;
-const MAX_TITLES_PER_REQUEST = 50;
+import type { Env, ConfirmResultItem, Title } from '../types';
+import { createTitle, findTitleByJustWatchId } from '../services/database';
+import { MAX_TOTAL_TITLES } from '../config/limits';
+import { logInitialAvailability } from '../services/availability';
+import { buildErrorResponse } from '../utils/errors';
+import { validateRequest, ConfirmRequestSchema } from '../validation/schemas';
+import { ZodError } from 'zod';
 
 export async function handleSyncConfirm(request: Request, env: Env): Promise<Response> {
   try {
-    const body = await request.json() as ConfirmRequest;
+    // Validate and parse request body
+    const body = await validateRequest(request, ConfirmRequestSchema);
     const selections = body.selections;
-
-    if (!Array.isArray(selections) || selections.length === 0) {
-      return Response.json({ error: 'selections array is required' }, { status: 400 });
-    }
-
-    // Check per-request limit
-    if (selections.length > MAX_TITLES_PER_REQUEST) {
-      return Response.json({
-        error: `Maximum ${MAX_TITLES_PER_REQUEST} titles per import request`,
-        received: selections.length,
-        limit: MAX_TITLES_PER_REQUEST
-      }, { status: 400 });
-    }
 
     // Check total titles limit
     const countResult = await env.DB
@@ -65,17 +53,8 @@ export async function handleSyncConfirm(request: Request, env: Env): Promise<Res
           jwResult.poster || null
         );
 
-        // Extract services from offers and log initial availability
-        const serviceSlugs = extractServicesFromOffers(jwResult.offers || []);
-        const today = new Date().toISOString().split('T')[0];
-
-        // Get all services to log availability (available + unavailable)
-        const allServices = await getAllServices(env.DB);
-
-        for (const service of allServices) {
-          const isAvailable = serviceSlugs.includes(service.slug);
-          await logAvailability(env.DB, title.id, service.id, today, isAvailable);
-        }
+        // Log initial availability across all services
+        await logInitialAvailability(env.DB, title.id, jwResult.offers || []);
 
         results.push({
           name: query,
@@ -101,15 +80,14 @@ export async function handleSyncConfirm(request: Request, env: Env): Promise<Res
       results
     });
   } catch (error) {
-    console.error('Sync confirm error:', error);
-
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = {
-      error: 'Failed to confirm titles',
-      details: errorMessage,
-      timestamp: new Date().toISOString()
-    };
-
-    return Response.json(errorDetails, { status: 500 });
+    // Handle validation errors with detailed messages
+    if (error instanceof ZodError) {
+      return Response.json({
+        error: 'Invalid request data',
+        details: error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+        timestamp: new Date().toISOString()
+      }, { status: 400 });
+    }
+    return buildErrorResponse(error, 'Failed to confirm titles');
   }
 }

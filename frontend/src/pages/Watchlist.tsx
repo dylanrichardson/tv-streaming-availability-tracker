@@ -5,6 +5,8 @@ import { TitleList } from '../components/TitleList';
 import { TitleTimeline } from '../components/TitleTimeline';
 import { ImportModal } from '../components/ImportModal';
 import { SearchModal } from '../components/SearchModal';
+import { ErrorDisplay } from '../components/common/ErrorDisplay';
+import { EmptyState } from '../components/common/EmptyState';
 
 export function Watchlist() {
   const { titles, loading, error, progress, reload } = useTitles();
@@ -81,28 +83,16 @@ export function Watchlist() {
           </div>
         </div>
       ) : error ? (
-        <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
-          <p className="text-red-400">{error}</p>
-          <button
-            className="text-sm text-red-300 underline mt-2"
-            onClick={reload}
-          >
-            Try again
-          </button>
-        </div>
+        <ErrorDisplay error={error} onRetry={reload} />
       ) : titles.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">No titles tracked yet.</p>
-          <p className="text-gray-600 text-sm mb-4">
-            This is a shared database. Add titles to start tracking their streaming availability.
-          </p>
-          <button
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            onClick={() => setShowImport(true)}
-          >
-            Import Your First Titles
-          </button>
-        </div>
+        <EmptyState
+          message="No titles tracked yet."
+          submessage="This is a shared database. Add titles to start tracking their streaming availability."
+          action={{
+            label: 'Import Your First Titles',
+            onClick: () => setShowImport(true)
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>

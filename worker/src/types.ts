@@ -35,15 +35,17 @@ export interface JustWatchSearchResult {
   id: number;
   title: string;
   object_type: 'movie' | 'show';
-  fullPath?: string;
-  poster?: string;
-  offers?: JustWatchOffer[];
+  fullPath?: string | undefined;
+  poster: string | null;
+  offers?: JustWatchOffer[] | undefined;
 }
 
 export interface JustWatchOffer {
-  provider_id: number;
-  monetization_type: string;
-  package_short_name: string;
+  monetizationType: string;
+  provider_id?: number;
+  package?: {
+    shortName?: string;
+  };
 }
 
 export interface SyncRequest {
@@ -85,7 +87,7 @@ export interface PreviewResultItem {
   query: string;
   status: 'unique' | 'multiple' | 'none' | 'exists';
   matches: JustWatchSearchResult[];
-  existingTitle?: Title;
+  existingTitle?: Title | undefined;
 }
 
 export interface PreviewResponse {
@@ -104,6 +106,7 @@ export interface ConfirmRequest {
 export interface ConfirmResultItem {
   name: string;
   status: 'created' | 'exists' | 'error';
-  title?: Title;
-  error?: string;
+  title?: Title | undefined;
+  note?: string | undefined;
+  error?: string | undefined;
 }

@@ -1,27 +1,18 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { ServiceCoverage } from '../types';
+import { SERVICE_COLORS } from '../constants/services';
+import { EmptyState } from './common/EmptyState';
 
 interface ServiceChartProps {
   services: ServiceCoverage[];
   totalTitles: number;
 }
 
-const SERVICE_COLORS: Record<string, string> = {
-  Netflix: '#e50914',
-  'Amazon Prime Video': '#00a8e1',
-  Hulu: '#1ce783',
-  'Disney+': '#113ccf',
-  'HBO Max': '#b385f2',
-  'Apple TV+': '#555555',
-  Peacock: '#ffc107',
-  'Paramount+': '#0064ff',
-};
-
 export function ServiceChart({ services, totalTitles }: ServiceChartProps) {
   if (services.length === 0 || services.every((s) => s.coverage.length === 0)) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6 text-center">
-        <p className="text-gray-500">No coverage data yet. Data will appear after the daily check runs.</p>
+      <div className="bg-gray-800 rounded-lg p-6">
+        <EmptyState message="No coverage data yet. Data will appear after the daily check runs." />
       </div>
     );
   }

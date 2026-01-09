@@ -124,10 +124,10 @@ npm run dev
 1. **Import**: Anyone adds titles → Worker searches JustWatch → stores in shared D1 database
    - Duplicate detection prevents the same title being added twice
    - Up to 5000 titles total, 50 per import request
-2. **Queue System**: Cron trigger (every 4 hours) checks oldest unchecked titles
+2. **Queue System**: Cron trigger (every 15 minutes) checks oldest unchecked titles
    - Each title checked once per week (configurable)
    - Smart scheduling: batch size adjusts based on total title count
-   - ~714 API calls/day at 5000 titles (~30 calls/hour)
+   - Distributed load: small batches spread across frequent runs
 3. **History**: Each check logs `{title, service, date, available}` rows
 4. **Analytics**: Aggregates logs to calculate coverage % per service over time
 
@@ -145,8 +145,8 @@ The system uses a dynamic queue that:
 
 **Algorithm:**
 ```typescript
-// On each cron run (every 4 hours)
-const runsPerWeek = (7 * 24) / 4; // 42 runs
+// On each cron run (every 15 minutes)
+const runsPerWeek = (7 * 24 * 60) / 15; // 672 runs
 const titlesPerRun = Math.ceil(totalTitles / runsPerWeek);
 
 // Select oldest unchecked titles
@@ -179,7 +179,7 @@ Key configuration options in `worker/src/config.ts`:
 ```typescript
 export const CONFIG = {
   // Queue system
-  CRON_INTERVAL_HOURS: 4,              // How often cron runs
+  CRON_INTERVAL_MINUTES: 15,           // How often cron runs (must match wrangler.toml)
   TARGET_CHECK_FREQUENCY_DAYS: 7,      // Check each title weekly
 
   // Import limits

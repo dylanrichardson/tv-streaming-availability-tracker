@@ -1,0 +1,36 @@
+{
+  "name": "streamtrack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TV Streaming Availability Tracker - Monitor streaming availability across services",
+  "workspaces": [
+    "worker",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:worker": "cd worker && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:worker": "cd worker && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "deploy:worker": "cd worker && npm run deploy",
+    "deploy": "npm run deploy:worker && git push origin main",
+    "test:worker": "cd worker && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "cd worker && npm run lint && cd ../frontend && npm run lint",
+    "type-check": "cd worker && npx tsc --noEmit && cd ../frontend && npx tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dylanrichardson/tv-streaming-availability-tracker.git"
+  },
+  "keywords": [
+    "streaming",
+    "availability",
+    "tracker",
+    "justwatch",
+    "cloudflare",
+    "workers"
+  ],
+  "author": "Dylan Richardson",
+  "license": "MIT"
+}

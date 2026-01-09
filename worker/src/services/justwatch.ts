@@ -1,8 +1,34 @@
-import type { JustWatchSearchResult } from '../types';
+import type { JustWatchSearchResult, JustWatchOffer } from '../types';
+import { formatPosterUrl } from '../utils/poster';
 
 const JUSTWATCH_GRAPHQL = 'https://apis.justwatch.com/graphql';
 const COUNTRY = 'US';
 const LANGUAGE = 'en';
+
+// JustWatch GraphQL API Type Definitions
+interface JustWatchNode {
+  objectId: number;
+  objectType: 'MOVIE' | 'SHOW';
+  content: {
+    title: string;
+    fullPath?: string;
+    posterUrl?: string;
+  };
+  offers?: JustWatchOffer[];
+}
+
+interface JustWatchEdge {
+  node: JustWatchNode;
+}
+
+interface JustWatchGraphQLResponse {
+  data?: {
+    searchTitles?: {
+      edges: JustWatchEdge[];
+    };
+  };
+  errors?: Array<{ message: string }>;
+}
 
 // Map JustWatch package short names to our service slugs
 const PACKAGE_MAP: Record<string, string> = {
@@ -101,31 +127,27 @@ export async function searchTitle(query: string): Promise<JustWatchSearchResult 
       return null;
     }
 
-    const data = await response.json() as any;
+    const data = await response.json() as JustWatchGraphQLResponse;
     const edges = data?.data?.searchTitles?.edges;
 
     if (!edges || edges.length === 0) {
       return null;
     }
 
-    const node = edges[0].node;
-
-    // Format poster URL by replacing placeholders
-    let posterUrl = node.content.posterUrl;
-    if (posterUrl) {
-      posterUrl = posterUrl
-        .replace('{profile}', 's332')  // Use s332 size (332px width)
-        .replace('{format}', 'webp');  // Use webp format
-      posterUrl = `https://images.justwatch.com${posterUrl}`;
+    const firstEdge = edges[0];
+    if (!firstEdge) {
+      return null;
     }
+
+    const node = firstEdge.node;
 
     return {
       id: node.objectId,
       title: node.content.title,
       object_type: node.objectType === 'SHOW' ? 'show' : 'movie',
-      fullPath: node.content.fullPath,
-      poster: posterUrl,
-      offers: node.offers || [],
+      fullPath: node.content.fullPath || undefined,
+      poster: formatPosterUrl(node.content.posterUrl),
+      offers: node.offers || undefined,
     };
   } catch (error) {
     console.error('JustWatch search error:', error);
@@ -159,7 +181,7 @@ export async function searchTitles(query: string, limit: number = 20): Promise<J
       return [];
     }
 
-    const data = await response.json() as any;
+    const data = await response.json() as JustWatchGraphQLResponse;
     const edges = data?.data?.searchTitles?.edges;
 
     if (!edges || edges.length === 0) {
@@ -167,25 +189,16 @@ export async function searchTitles(query: string, limit: number = 20): Promise<J
     }
 
     // Map all results, not just the first one
-    return edges.map((edge: any) => {
+    return edges.map((edge) => {
       const node = edge.node;
-
-      // Format poster URL by replacing placeholders
-      let posterUrl = node.content.posterUrl;
-      if (posterUrl) {
-        posterUrl = posterUrl
-          .replace('{profile}', 's332')  // Use s332 size (332px width)
-          .replace('{format}', 'webp');  // Use webp format
-        posterUrl = `https://images.justwatch.com${posterUrl}`;
-      }
 
       return {
         id: node.objectId,
         title: node.content.title,
         object_type: node.objectType === 'SHOW' ? 'show' : 'movie',
-        fullPath: node.content.fullPath,
-        poster: posterUrl,
-        offers: node.offers || [],
+        fullPath: node.content.fullPath || undefined,
+        poster: formatPosterUrl(node.content.posterUrl),
+        offers: node.offers || undefined,
       };
     });
   } catch (error) {
@@ -259,7 +272,7 @@ export async function getTitleAvailability(justwatchId: number, type: 'movie' | 
   }
 }
 
-export function extractServicesFromOffers(offers: any[]): string[] {
+export function extractServicesFromOffers(offers: JustWatchOffer[]): string[] {
   const serviceSlugs = new Set<string>();
 
   for (const offer of offers) {
